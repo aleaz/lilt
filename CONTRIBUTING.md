@@ -35,7 +35,7 @@ GitHub Actions runs `make ci` on every push to `main`/`master` and on pull reque
 
 Significant architectural changes (TM schema, masking taxonomy, new core commands) must be documented in the relevant guide under `docs/architecture/`. Read [docs/architecture/README.md](docs/architecture/README.md) before proposing major design changes.
 
-User-facing docs (getting started, guides, CLI/config reference, runbooks) live under [docs/README.md](docs/README.md). Update those when the operator-facing interface changes.
+User-facing docs (getting started, guides, CLI/config reference, runbooks) live under [docs/README.md](docs/README.md). Update those when the operator-facing interface changes. Agents: follow the path → docs matrix in [`.cursor/rules/lilt-architecture.mdc`](.cursor/rules/lilt-architecture.mdc); optional warn-only check `make docs-sync-check`.
 
 ## 4. Pull Request Process
 

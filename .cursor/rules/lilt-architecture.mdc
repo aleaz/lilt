@@ -77,11 +77,30 @@ Service-layer detail: [docs/architecture/07-cli-application.md](docs/architectur
 
 ## Documentation policy
 
-- Behavior changes in `src/lilt/` MUST update the matching L1 guide in the same change set.
+- Behavior changes in `src/lilt/` MUST update the matching L1 guide in the **same change set**.
 - When a feature ships, remove it from [appendix-deferred](docs/architecture/appendix-deferred.md); add to PRD "Shipped" if user-visible.
 - **Known gaps** list open issues only (no historical residue).
 - Architectural decisions live in L1 **Decisions** / appendix-deferred — **no separate ADR IDs**.
 - When code and docs disagree, L1 **Behavior** / **Known gaps** reflect the running implementation.
+- Do **not** mark a task done until mapped docs below are updated, **or** you explicitly state `Docs N/A:` with reason (test-only, comment-only, typo in non-behavior code).
+
+### Path → docs matrix (same changeset)
+
+| If you change… | Update in the same change… |
+|----------------|----------------------------|
+| `src/lilt/cli/**` | [docs/reference/cli.md](docs/reference/cli.md); [07-cli-application.md](docs/architecture/07-cli-application.md) if services/invariants change |
+| `src/lilt/services/**` | [07-cli-application.md](docs/architecture/07-cli-application.md); [docs/reference/cli.md](docs/reference/cli.md) if user-visible flags/commands change |
+| `src/lilt/models/config*` / config schema / `lilt.yaml` shape | [docs/reference/config.md](docs/reference/config.md) + [01-platform.md](docs/architecture/01-platform.md) |
+| `src/lilt/parser/**` | [03-parser-masking.md](docs/architecture/03-parser-masking.md) |
+| `src/lilt/tm/**`, `models/segment*`, `segment_transition*`, `core/sync.py`, `core/review_policy.py` | [02-persistence.md](docs/architecture/02-persistence.md) |
+| `src/lilt/core/translation/**` | [04-translation-engine.md](docs/architecture/04-translation-engine.md) |
+| `src/lilt/llm/**` | [05-llm-layer.md](docs/architecture/05-llm-layer.md) |
+| `src/lilt/core/build*` / build reconstruction | [06-build-output.md](docs/architecture/06-build-output.md) |
+| `src/lilt/telemetry/**` | [08-observability.md](docs/architecture/08-observability.md) |
+| New user-visible command or flag | [docs/reference/cli.md](docs/reference/cli.md) + affected guide under `docs/guides/` if workflow changes |
+| Feature leaving deferred | Remove from [appendix-deferred.md](docs/architecture/appendix-deferred.md); PRD Shipped if user-visible |
+
+Optional warn-only check: `make docs-sync-check` ([scripts/check-doc-sync.sh](scripts/check-doc-sync.sh)).
 
 ## Deferred (do not implement as if shipped)
 

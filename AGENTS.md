@@ -24,6 +24,7 @@ Human process: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 - Do **not** invent CLI commands outside `project` / `pipeline` / `tm` / `telemetry` (see [docs/reference/cli.md](docs/reference/cli.md)).
 - Do **not** restore `docs/adrs/` — decisions live in L1 guides.
 - Prefer `make ci` before considering a change done.
+- Doc sync (path → which guide/reference to update) lives in [`.cursor/rules/lilt-architecture.mdc`](.cursor/rules/lilt-architecture.mdc) (Documentation policy / matrix). Optional: `make docs-sync-check`.
 
 ## Local Antigravity
 

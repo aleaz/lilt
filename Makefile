@@ -1,4 +1,4 @@
-.PHONY: format lint typecheck test check-all ci
+.PHONY: format lint typecheck test check-all ci docs-sync-check
 
 format:
 	uv run ruff format .
@@ -20,4 +20,8 @@ ci:
 	uv run ruff check .
 	uv run mypy src/ tests/
 	uv run pytest
+
+# Warn-only doc sync vs origin/main (never fails; not part of `make ci`)
+docs-sync-check:
+	bash scripts/check-doc-sync.sh
 

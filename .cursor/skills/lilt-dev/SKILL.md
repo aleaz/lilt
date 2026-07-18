@@ -82,8 +82,19 @@ Services/invariants: [docs/architecture/07-cli-application.md](../../../docs/arc
 ## Validation and PR
 
 - Local gate matching CI: `make ci` (see [CONTRIBUTING.md](../../../CONTRIBUTING.md)).
+- Optional doc-sync warn: `make docs-sync-check` (does **not** fail `make ci`).
 - Do not duplicate PR checklists here — use CONTRIBUTING and [`.github/PULL_REQUEST_TEMPLATE.md`](../../../.github/PULL_REQUEST_TEMPLATE.md).
-- Behavior changes in `src/lilt/` must update the matching L1 guide in the same change set.
+
+## Before done
+
+Use the path → docs matrix in [`.cursor/rules/lilt-architecture.mdc`](../../rules/lilt-architecture.mdc) (Documentation policy).
+
+1. Inspect the diff under `src/lilt/` and map paths via the matrix.
+2. Update L1 **Behavior** / **Known gaps** (remove resolved gaps; do not keep as history).
+3. If CLI or config is operator-facing, update `docs/reference/*` (and a guide under `docs/guides/` if the “how” changed).
+4. Do not edit the root README landing except for broken links.
+5. In the reply to the user, state `Docs updated: <paths>` or `Docs N/A: <reason>`.
+6. Then run `make ci`.
 
 ## Git
 
