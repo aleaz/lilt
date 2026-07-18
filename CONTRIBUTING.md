@@ -44,3 +44,48 @@ Significant architectural changes (TM schema, masking taxonomy, new core command
 ## 5. Large-Scale Empirical Tests
 
 If you run large-scale experiments on real books or papers, keep generated workspaces, PDFs, and campaign artifacts **outside** this repository (for example under a private sibling directory or a separate evaluation repo). Do not commit evaluation sandboxes, corpus downloads, or model traces here. This repository ships the localization engine and its unit/CLI tests only.
+
+## 6. Optional: AI assistant setup
+
+**Canonical AI context for this repo (versioned in git):**
+
+| Tool | Location | Purpose |
+| --- | --- | --- |
+| **Any agent** | [`AGENTS.md`](AGENTS.md) | Short pointer to SSOT paths (Antigravity-friendly) |
+| **Cursor** | [`.cursor/rules/lilt-architecture.mdc`](.cursor/rules/lilt-architecture.mdc) | Architecture and product-boundary invariants (always apply) |
+| **Cursor** | [`.cursor/rules/lilt-git-agent.mdc`](.cursor/rules/lilt-git-agent.mdc) | Git for agents: no co-author trailers, no push unless asked |
+| **Cursor** | [`.cursor/rules/lilt-parser-masking.mdc`](.cursor/rules/lilt-parser-masking.mdc) | Parser/placeholder integrity (when editing parser paths) |
+| **Cursor** | [`.cursor/rules/lilt-tm-lifecycle.mdc`](.cursor/rules/lilt-tm-lifecycle.mdc) | TM statuses and human protection (when editing TM/sync) |
+| **Cursor** | [`.cursor/skills/lilt-dev/SKILL.md`](.cursor/skills/lilt-dev/SKILL.md) | CLI workflows and pre-PR pointers |
+| **Cursor** | [`.cursorignore`](.cursorignore) | Keep venv, `.lilt/`, PDFs, and caches out of agent context |
+
+Use `.cursor/` as the single source of truth for Cursor and for human onboarding.
+Do not rely on gitignored local paths (for example `.agents/`) for architecture rules.
+
+Deep product documentation remains under [docs/architecture/](docs/architecture/README.md); the Cursor rules pin the path agents must follow without inventing CLI surface, corpus tooling, or ADRs.
+
+**Optional — Antigravity / AG Kit (local only, not in git):**
+
+- You may initialize a local AG Kit / Antigravity agent store on your machine (creates `.agents/`).
+- Generic AG Kit skills and workflows are not curated for LILT; prefer `.cursor/` above.
+- If you keep a local Antigravity memory file, keep it aligned with
+  [`.cursor/rules/lilt-architecture.mdc`](.cursor/rules/lilt-architecture.mdc)
+  (do not treat gitignored paths as the project source of truth).
+
+### Maintaining AI context (anti-drift)
+
+When architecture, product boundary, CLI surface, or CI validation commands change, update sources in this order:
+
+1. Edit [`.cursor/rules/lilt-architecture.mdc`](.cursor/rules/lilt-architecture.mdc) — canonical source for agents and humans.
+2. Keep [`.cursor/rules/lilt-git-agent.mdc`](.cursor/rules/lilt-git-agent.mdc) aligned if git agent policy changes.
+3. Keep scoped rules ([parser](.cursor/rules/lilt-parser-masking.mdc), [TM](.cursor/rules/lilt-tm-lifecycle.mdc)) aligned when those domains change.
+4. Update [`.cursor/skills/lilt-dev/SKILL.md`](.cursor/skills/lilt-dev/SKILL.md) only if it mentions the changed behavior explicitly.
+5. Update [`AGENTS.md`](AGENTS.md) only if SSOT paths or hard stops change (keep it pointer-only).
+6. Update this file and the PR template if the human checklist changes; update the matching L1 guide under `docs/architecture/` when runtime behavior changes.
+7. If you use Antigravity locally, sync any local memory file from step 1.
+
+Do not add duplicate checklists to the skill — link to this file instead.
+Do not add generic always-on Cursor rules (benchmark prompts, web-app templates); they contradict LILT invariants.
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) is the objective final check; keep it aligned with the Testing and Standards section above.
+
+If you do **not** use Antigravity, you can remove local AG Kit with `rm -rf .agents/ .temp_ag_kit` to reduce editor noise.

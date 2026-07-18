@@ -1,0 +1,28 @@
+# Local environments and tool caches (not product source)
+.venv/
+env/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+**/__pycache__/
+.coverage
+
+# Generated LILT workspace state and build artifacts
+.lilt/
+i18n/build/
+*.pdf
+*.aux
+*.log
+*.out
+*.toc
+telemetry.db
+
+# Optional local agent stores (not project SSOT)
+.agents/
+.gemini/
+.temp_ag_kit/
+
+# Heavy lockfile — agents should use pyproject.toml for deps intent
+uv.lock

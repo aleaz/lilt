@@ -1,0 +1,100 @@
+---
+description: LILT architecture and product-boundary invariants
+alwaysApply: true
+---
+
+# LILT — architecture rules
+
+LILT (LaTeX Intelligent Localization Tool) is a local-first Python CLI for
+continuous localization of LaTeX projects. ALWAYS respect these invariants.
+
+Deep dive for humans and agents: [docs/architecture/README.md](docs/architecture/README.md).
+Do not invent behavior that contradicts the L1 guides.
+
+## Layers (one direction only)
+
+`cli/` (Typer) → `services/` (orchestration) → `core/` / `parser/` / `tm/` / `llm/` / `validation/`.
+
+- Command handlers MUST stay thin: no business logic in `cli/commands/`.
+- `WorkspaceContext` is the composition root for paths, TM repo, and telemetry.
+- Prefer extending services/core over adding new CLI-side orchestration.
+
+## Product boundary (do not reintroduce)
+
+This repository ships the **localization engine** only (`src/lilt/`, `tests/`, L1 docs).
+
+NEVER add or restore in this tree:
+
+- `corpus/`, `tools/corpus/`, `evaluation/`, nightly eval workflows
+- CLI groups/commands: `lilt corpus`, `lilt project evaluate`
+- Separate ADR trees under `docs/adrs/` (decisions live in L1 **Decisions** / appendix-deferred)
+
+Empirical corpora and evaluation harnesses live **outside** this repository.
+See CONTRIBUTING § Large-Scale Empirical Tests.
+
+## Domain SSOT
+
+- **Translation Memory (JSONL)** under `.lilt/tm/` is the source of truth for segments.
+- **Segment** = atomic CTU (paragraph-centric) with stable ID, masked `source_text`, status, placeholders.
+- **Namespace** = one JSONL file per encoded relative `.tex` path.
+- **Integrity over linguistics**: placeholder multiset + syntax validation before accepting MT/human edits.
+  Never “improve” prose by dropping or rewriting placeholder tags.
+- **Human priority**: `reviewed` / `approved` / `locked` are not auto-overwritten; source change → `conflict`.
+- Reflection stages are Draft → Critique → Refine (workflow or sequential modes), not free-form agents.
+- Persisted placeholder maps from sync are used at build; do not rely on live re-parse alone.
+
+### Translation glossary (do not conflate)
+
+- **Critique** = LLM MQM evaluation of a draft (machine stage / artifact).
+- **Review** = human editorial queue (`pipeline review` / import).
+- **`refined`** = machine translation complete and validated — not human-approved.
+- **`approved` / `locked`** = human gates; `locked` only via `tm set-status`.
+- Canonical vocabulary: [docs/architecture/00-glossary.md](docs/architecture/00-glossary.md).
+
+## Canonical CLI surface
+
+Groups: `project`, `pipeline`, `tm` (+ `tm admin`), `telemetry`.
+
+Shipped commands (do not invent aliases as if they were top-level):
+
+- `project init` | `project configure` (`--dry-run` for analyze-only)
+- `pipeline sync` | `translate` | `build` | `review` | `edit`
+- `tm list` | `status` | `set-status` | `export` | `import`
+- `tm admin prune` | `repair` | `reset`
+- `telemetry show`
+
+`PipelineService.compile_pdf` is **service-only** — not a CLI command. Users compile with `pdflatex` / `latexmk` after `pipeline build`.
+
+Canonical reference: [docs/architecture/07-cli-application.md](docs/architecture/07-cli-application.md).
+
+## LLM providers
+
+- Factory registers the `openai` adapter name (OpenAI-compatible HTTP APIs).
+- Do not add first-class Anthropic/other SDKs unless explicitly designed and documented.
+- Default posture is local-first (`localhost` OpenAI-compatible endpoint); cloud via config/`llm.stages`.
+
+## Documentation policy
+
+- Behavior changes in `src/lilt/` MUST update the matching L1 guide in the same change set.
+- When a feature ships, remove it from [appendix-deferred](docs/architecture/appendix-deferred.md); add to PRD "Shipped" if user-visible.
+- **Known gaps** list open issues only (no historical residue).
+- Architectural decisions live in L1 **Decisions** / appendix-deferred — **no separate ADR IDs**.
+- When code and docs disagree, L1 **Behavior** / **Known gaps** reflect the running implementation.
+
+## Deferred (do not implement as if shipped)
+
+Plugins, Git automation, Terminology/Structure validators, multi-language `.lilt/<lang>/`,
+AST-node identity Phase 2, HTTP/TUI/web UI, multi-format (Markdown/AsciiDoc).
+See [appendix-deferred](docs/architecture/appendix-deferred.md).
+
+## Toolchain and validation (same as CI)
+
+- Python 3.13+; package management with `uv` only.
+- Prefer `make ci` as the non-mutating gate matching GitHub Actions.
+- Equivalent: `uv run ruff format --check .`, `uv run ruff check .`, `uv run mypy src/ tests/`, `uv run pytest`.
+
+## Documentation language
+
+- Project docs, AI context files (rules, skills), and code comments/docstrings MUST be **English**.
+- Conversations with the user may be in any language; generated artifacts are not.
+- This is a Typer CLI, not a web framework — ignore FastAPI/Django suggestions unless asked.

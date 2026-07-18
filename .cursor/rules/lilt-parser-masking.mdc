@@ -1,0 +1,29 @@
+---
+description: Parser and placeholder masking invariants for LaTeX integrity
+globs: src/lilt/parser/**,tests/test_parser*.py,tests/test_placeholder*.py
+alwaysApply: false
+---
+
+# LILT — parser and masking
+
+When editing parser or placeholder code, preserve structural integrity of LaTeX.
+Canonical guide: [docs/architecture/03-parser-masking.md](docs/architecture/03-parser-masking.md).
+
+## MUST
+
+- Use AST-based parsing (`pylatexenc`) with gap-preserving roundtrip verification.
+- Keep opaque / transparent / deep-traversal taxonomy consistent with L1.
+- Treat `placeholder_contract.py` as the single source of truth for placeholder regex and validation.
+- Persist placeholder maps at sync; build unmasks from TM maps, not ad-hoc rewrites.
+- Multiset-exact placeholder matching before accepting translations.
+
+## NEVER
+
+- Replace structural parsing with regex-only segmentation of whole documents.
+- “Simplify” unmasking by dropping tags, renaming prefixes, or inventing new placeholder shapes without updating the contract + validators + L1 guide.
+- Send raw math, verbatim, `\ref`/`\cite`, or opaque environments to the LLM unmasked.
+- Break roundtrip: reconstructed bytes from parse blocks must match source for covered spans.
+
+## Tests
+
+Prefer extending existing parser/placeholder tests. Do not add third-party paper corpora into this repository.

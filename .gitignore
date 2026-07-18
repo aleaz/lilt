@@ -16,8 +16,10 @@ venv/
 # Tools and IDEs
 .idea/
 .vscode/
-.cursor/
 .DS_Store
+.agents/
+.gemini/
+.temp_ag_kit/
 .ruff_cache/
 .pytest_cache/
 .mypy_cache/

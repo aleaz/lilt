@@ -1,0 +1,38 @@
+---
+description: TM segment lifecycle, human protection, and status transitions
+globs: src/lilt/tm/**,src/lilt/models/segment*.py,src/lilt/models/segment_transition.py,src/lilt/core/sync.py,src/lilt/core/review_policy.py
+alwaysApply: false
+---
+
+# LILT — TM and segment lifecycle
+
+When editing Translation Memory, segment models, sync, or review policy, protect
+human work and schema stability.
+Canonical guide: [docs/architecture/02-persistence.md](docs/architecture/02-persistence.md).
+
+## Status machine (10)
+
+Machine path: `generated` → `drafted` → `critiqued` → `refined`.
+Human gates: `reviewed` → `approved` → `locked`.
+Also: `conflict`, `error`, `deprecated`.
+
+## MUST
+
+- Treat JSONL TM under `.lilt/tm/` as SSOT for segment state.
+- Honor human protection: do not auto-overwrite `reviewed` / `approved` / `locked`.
+- On source change for protected segments → `conflict` (manual resolution).
+- Distinguish `conflict` (validation/source-change) from `error` (infra/LLM failure).
+- Use namespace session locks for mutating writers (`NamespaceBusyError` is expected).
+- Set `locked` only via explicit `lilt tm set-status` (never via LLM pipeline).
+
+## NEVER
+
+- Invent new statuses, TM columns, or JSONL schemas without L1 + model updates.
+- Clear human translations silently on sync/translate.
+- Bypass `SegmentTransitionPolicy` / review policy for “convenience”.
+- Assume full transactional RMW across callers — session lock is the 1.0 mitigation.
+
+## Glossary tip
+
+**Critique** = LLM MQM stage artifact; **Review** = human editorial queue.
+`refined` is machine-complete; `approved` / `locked` are human gates.
