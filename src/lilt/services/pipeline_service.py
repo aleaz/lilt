@@ -3,13 +3,13 @@
 import os
 import shutil
 import subprocess
-import typing
 from collections.abc import Callable, Iterable
+from typing import Any
 
 from lilt.core.build import Builder, BuildResult
 from lilt.core.review_policy import ReviewPolicy
 from lilt.core.sync import sync_file as core_sync_file
-from lilt.core.translation import TranslatorPipeline
+from lilt.core.translation.strategy_factory import create_reflection_strategy
 from lilt.exceptions import (
     BuildError,
     ConfigurationError,
@@ -29,7 +29,6 @@ from lilt.parser.dependency_resolver import DependencyResolver
 from lilt.services.workspace_context import WorkspaceContext
 from lilt.tm.segment_lookup import resolve_unique_segment
 from lilt.utils.namespace import derive_namespace, find_namespace_collisions
-from lilt.utils.path_utils import path_is_under_workspace
 from lilt.validation.validators import (
     SegmentTranslationValidator,
     ValidationError,
@@ -44,9 +43,7 @@ class SyncOrchestrator:
 
     def sync_file(self, input_file: str) -> list[SyncResult]:
         """Parse ``input_file`` and its ``.tex`` dependencies into TM namespaces."""
-        abs_input = self.ctx._resolve_and_verify_path(  # type: ignore
-            input_file
-        )
+        abs_input = self.ctx.resolve_under_workspace(input_file)
         if not os.path.exists(abs_input):
             raise FileNotFoundError(f"File '{input_file}' not found.")
         if os.path.isdir(abs_input):
@@ -121,7 +118,17 @@ class TranslationOrchestrator:
         """Translate eligible segments and yield progress tuples."""
         config = self.ctx.preconditions.load_config()
         self.ctx.preconditions.require_namespace(namespace)
-        pipeline = self._build_translator_pipeline(config, translation_mode)
+        llm_config = config.to_llm_factory_dict(workspace_dir=self.ctx.workspace_dir)
+        llm = ProviderFactory.create(llm_config)
+        mode = translation_mode or TranslationMode.from_llm_config(llm_config)
+        strategy = create_reflection_strategy(
+            mode,
+            self.ctx.repo,
+            llm,
+            config.llm.context_window,
+            self.ctx.telemetry,
+            draft_empty_retries=config.llm.draft_empty_retries,
+        )
 
         total = 0
         current = 0
@@ -130,9 +137,10 @@ class TranslationOrchestrator:
         if status_filter:
             resolved_status = StatusResolver.resolve(status_filter).value
 
+        stage_value = stage.value if stage is not None else None
         with self.ctx.repo.namespace_session(namespace):
-            for event in pipeline.run_translation_iter(
-                namespace, force, segment_id, resolved_status, stage
+            for event in strategy.run_iter(
+                namespace, force, segment_id, resolved_status, stage_value
             ):
                 event_type = event.get("type")
                 if event_type == "start":
@@ -210,15 +218,17 @@ class TranslationOrchestrator:
         self,
         config: LiltConfig,
         translation_mode: TranslationMode | None = None,
-    ) -> TranslatorPipeline:
+    ) -> Any:
+        """Build a strategy-backed pipeline for tests that poke the private API."""
+        from lilt.core.translation.pipeline import TranslatorPipeline  # noqa: PLC0415
+
         llm_config = config.to_llm_factory_dict(workspace_dir=self.ctx.workspace_dir)
         llm = ProviderFactory.create(llm_config)
-        context_window = config.llm.context_window
         mode = translation_mode or TranslationMode.from_llm_config(llm_config)
         return TranslatorPipeline(
             self.ctx.repo,
             llm,
-            context_window,
+            config.llm.context_window,
             translation_mode=mode,
             telemetry=self.ctx.telemetry,
             draft_empty_retries=config.llm.draft_empty_retries,
@@ -243,12 +253,8 @@ class BuildOrchestrator:
         config = self.ctx.preconditions.load_config()
         self.ctx.preconditions.require_namespace(namespace)
 
-        abs_input = self.ctx._resolve_and_verify_path(  # type: ignore
-            input_file
-        )
-        abs_output = self.ctx._resolve_and_verify_path(  # type: ignore
-            output_file
-        )
+        abs_input = self.ctx.resolve_under_workspace(input_file)
+        abs_output = self.ctx.resolve_under_workspace(output_file)
 
         if not os.path.exists(abs_input):
             raise FileNotFoundError(f"File '{input_file}' not found.")
@@ -266,12 +272,8 @@ class BuildOrchestrator:
 
     def compile_pdf(self, main_file: str, output_dir: str) -> None:
         """Compile ``main_file`` with pdflatex/bib tools (service-only helper)."""
-        abs_output_dir = self.ctx._resolve_and_verify_path(  # type: ignore
-            output_dir
-        )
-        abs_main = self.ctx._resolve_and_verify_path(  # type: ignore
-            main_file
-        )
+        abs_output_dir = self.ctx.resolve_under_workspace(output_dir)
+        abs_main = self.ctx.resolve_under_workspace(main_file)
         env = self._build_latex_env()
         base_name = os.path.splitext(os.path.basename(abs_main))[0]
 
@@ -444,12 +446,8 @@ class ReviewManager:
         self.update_segment_translation(namespace, seg.id, normalized, new_status)
 
 
-# The WorkspaceContext lacks _resolve_and_verify_path, let's inject it via PipelineService wrapper.
-# Wait, let's just implement PipelineService as the Facade.
-
-
 class PipelineService:
-    """Facade over sync, translate, build, and review orchestrators."""
+    """Application composition root for sync, translate, build, and review."""
 
     def __init__(
         self, workspace_dir: str, workspace_ctx: WorkspaceContext | None = None
@@ -461,66 +459,85 @@ class PipelineService:
         self.tm_dir = self.ctx.tm_dir
         self.repo = self.ctx.repo
 
-        # We hack the method onto ctx for the orchestrators
-        self.ctx._resolve_and_verify_path = self._resolve_and_verify_path  # type: ignore
-
         self._sync = SyncOrchestrator(self.ctx)
         self._trans = TranslationOrchestrator(self.ctx)
         self._build = BuildOrchestrator(self.ctx)
         self._review = ReviewManager(self.ctx)
 
-    def _resolve_and_verify_path(self, input_path: str) -> str:
-        abs_path = os.path.abspath(
-            input_path
-            if os.path.isabs(input_path)
-            else os.path.join(self.workspace_dir, input_path)
-        )
-        real_path = os.path.realpath(abs_path)
-        real_workspace = os.path.realpath(self.workspace_dir)
-        if not path_is_under_workspace(real_path, real_workspace):
-            raise ValueError(
-                f"Security Error: Path '{input_path}' attempts to traverse outside the workspace sandbox."
-            )
-        return abs_path
-
-    # Facade methods
-    def sync_file(self, *args: typing.Any, **kwargs: typing.Any) -> list[SyncResult]:
-        """Delegate to SyncOrchestrator."""
-        return self._sync.sync_file(*args, **kwargs)
+    def sync_file(self, input_file: str) -> list[SyncResult]:
+        """Parse ``input_file`` and dependencies into TM namespaces."""
+        return self._sync.sync_file(input_file)
 
     def run_translation(
-        self, *args: typing.Any, **kwargs: typing.Any
-    ) -> typing.Iterable[tuple[int, int, str, str, bool]]:
-        """Delegate to TranslationOrchestrator."""
-        return self._trans.run_translation(*args, **kwargs)
+        self,
+        namespace: str,
+        force: bool = False,
+        segment_id: str | None = None,
+        status_filter: str | None = None,
+        stage: TranslationStage | None = None,
+        translation_mode: TranslationMode | None = None,
+    ) -> Iterable[tuple[int, int, str, str, bool]]:
+        """Translate eligible segments and yield progress tuples."""
+        return self._trans.run_translation(
+            namespace,
+            force=force,
+            segment_id=segment_id,
+            status_filter=status_filter,
+            stage=stage,
+            translation_mode=translation_mode,
+        )
 
-    def run_build(self, *args: typing.Any, **kwargs: typing.Any) -> BuildResult:
-        """Delegate to BuildOrchestrator."""
-        return self._build.run_build(*args, **kwargs)
+    def run_build(
+        self,
+        namespace: str,
+        input_file: str,
+        output_file: str,
+        *,
+        allow_partial: bool = False,
+    ) -> BuildResult:
+        """Build a translated document from TM into ``output_file``."""
+        return self._build.run_build(
+            namespace,
+            input_file,
+            output_file,
+            allow_partial=allow_partial,
+        )
 
-    def compile_pdf(self, *args: typing.Any, **kwargs: typing.Any) -> None:
-        """Delegate PDF compilation to BuildOrchestrator."""
-        return self._build.compile_pdf(*args, **kwargs)
+    def compile_pdf(self, main_file: str, output_dir: str) -> None:
+        """Compile ``main_file`` with pdflatex/bib tools (service-only helper)."""
+        return self._build.compile_pdf(main_file, output_dir)
 
-    def get_segments_to_review(
-        self, *args: typing.Any, **kwargs: typing.Any
-    ) -> list[StoredSegment]:
-        """Delegate to ReviewManager."""
-        return self._review.get_segments_to_review(*args, **kwargs)
+    def get_segments_to_review(self, namespace: str) -> list[StoredSegment]:
+        """Return segments eligible for interactive review."""
+        return self._review.get_segments_to_review(namespace)
 
-    def get_segment(self, *args: typing.Any, **kwargs: typing.Any) -> StoredSegment:
-        """Delegate to ReviewManager."""
-        return self._review.get_segment(*args, **kwargs)
+    def get_segment(self, namespace: str, segment_id: str) -> StoredSegment:
+        """Load a single segment by id or unique prefix."""
+        return self._review.get_segment(namespace, segment_id)
 
     def update_segment_translation(
-        self, *args: typing.Any, **kwargs: typing.Any
+        self,
+        namespace: str,
+        segment_id: str,
+        new_translation: str,
+        new_status: SegmentStatus = SegmentStatus.REVIEWED,
     ) -> None:
-        """Delegate to ReviewManager."""
-        return self._review.update_segment_translation(*args, **kwargs)
+        """Persist an edited translation with the given status."""
+        return self._review.update_segment_translation(
+            namespace, segment_id, new_translation, new_status
+        )
 
-    def submit_human_translation(self, *args: typing.Any, **kwargs: typing.Any) -> None:
-        """Delegate to ReviewManager."""
-        return self._review.submit_human_translation(*args, **kwargs)
+    def submit_human_translation(
+        self,
+        namespace: str,
+        segment_id: str,
+        new_translation: str,
+        new_status: SegmentStatus = SegmentStatus.APPROVED,
+    ) -> None:
+        """Validate and store a human translation."""
+        return self._review.submit_human_translation(
+            namespace, segment_id, new_translation, new_status
+        )
 
     def _get_config(self) -> LiltConfig:
         return self.ctx.preconditions.load_config()
@@ -529,5 +546,5 @@ class PipelineService:
         self,
         config: LiltConfig,
         translation_mode: TranslationMode | None = None,
-    ) -> TranslatorPipeline:
+    ) -> Any:
         return self._trans._build_translator_pipeline(config, translation_mode)

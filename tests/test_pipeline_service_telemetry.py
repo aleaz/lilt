@@ -19,4 +19,4 @@ def test_build_translator_pipeline_uses_workspace_telemetry():
         factory.create.return_value = MagicMock()
         pipeline = service._build_translator_pipeline(config)
 
-    assert pipeline.telemetry is ctx.telemetry
+    assert pipeline.strategy.telemetry is ctx.telemetry

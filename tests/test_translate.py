@@ -47,7 +47,10 @@ def mock_llm():
 def test_translator_pipeline_empty_namespace(mock_tm, mock_llm):
     mock_tm.load_namespace.return_value = {}
     pipeline = TranslatorPipeline(
-        tm=mock_tm, llm=mock_llm, translation_mode=TranslationMode.WORKFLOW
+        tm=mock_tm,
+        llm=mock_llm,
+        telemetry=MagicMock(),
+        translation_mode=TranslationMode.WORKFLOW,
     )
 
     events = list(pipeline.run_translation_iter("test_ns"))
@@ -65,7 +68,10 @@ def test_translator_pipeline_workflow_success(mock_tm, mock_llm):
     mock_tm.load_namespace.return_value = {"1": seg1}
 
     pipeline = TranslatorPipeline(
-        tm=mock_tm, llm=mock_llm, translation_mode=TranslationMode.WORKFLOW
+        tm=mock_tm,
+        llm=mock_llm,
+        telemetry=MagicMock(),
+        translation_mode=TranslationMode.WORKFLOW,
     )
 
     with (
@@ -111,7 +117,10 @@ def test_workflow_empty_critique_bypasses_refine(mock_tm, mock_llm):
     mock_llm.generate_critique.return_value = LLMResponse(text="")
 
     pipeline = TranslatorPipeline(
-        tm=mock_tm, llm=mock_llm, translation_mode=TranslationMode.WORKFLOW
+        tm=mock_tm,
+        llm=mock_llm,
+        telemetry=MagicMock(),
+        translation_mode=TranslationMode.WORKFLOW,
     )
 
     with (
@@ -137,7 +146,10 @@ def test_workflow_empty_draft_sets_actionable_hint(mock_tm, mock_llm):
     mock_tm.load_namespace.return_value = {"author-seg": seg1}
 
     pipeline = TranslatorPipeline(
-        tm=mock_tm, llm=mock_llm, translation_mode=TranslationMode.WORKFLOW
+        tm=mock_tm,
+        llm=mock_llm,
+        telemetry=MagicMock(),
+        translation_mode=TranslationMode.WORKFLOW,
     )
 
     with patch(
@@ -179,7 +191,10 @@ def test_workflow_resume_skips_refined_segment(mock_tm, mock_llm):
     }
 
     pipeline = TranslatorPipeline(
-        tm=mock_tm, llm=mock_llm, translation_mode=TranslationMode.WORKFLOW
+        tm=mock_tm,
+        llm=mock_llm,
+        telemetry=MagicMock(),
+        translation_mode=TranslationMode.WORKFLOW,
     )
 
     with patch(_VALIDATOR, side_effect=_identity_normalize):
@@ -206,7 +221,10 @@ def test_translator_pipeline_workflow_refine(mock_tm, mock_llm):
     )
 
     pipeline = TranslatorPipeline(
-        tm=mock_tm, llm=mock_llm, translation_mode=TranslationMode.WORKFLOW
+        tm=mock_tm,
+        llm=mock_llm,
+        telemetry=MagicMock(),
+        translation_mode=TranslationMode.WORKFLOW,
     )
 
     with (
@@ -242,7 +260,10 @@ def test_translator_pipeline_validation_failure(mock_tm, mock_llm):
     )
 
     pipeline = TranslatorPipeline(
-        tm=mock_tm, llm=mock_llm, translation_mode=TranslationMode.WORKFLOW
+        tm=mock_tm,
+        llm=mock_llm,
+        telemetry=MagicMock(),
+        translation_mode=TranslationMode.WORKFLOW,
     )
 
     def fail_all_translations(_source: str, _translated: str) -> str:
@@ -283,6 +304,7 @@ def test_translator_pipeline_with_context(mock_tm, mock_llm):
     pipeline = TranslatorPipeline(
         tm=mock_tm,
         llm=mock_llm,
+        telemetry=MagicMock(),
         context_window=1,
         translation_mode=TranslationMode.WORKFLOW,
     )
@@ -323,7 +345,10 @@ def test_workflow_force_skips_locked_segment(mock_tm, mock_llm):
     mock_tm.load_namespace.return_value = {"locked-1": locked}
 
     pipeline = TranslatorPipeline(
-        tm=mock_tm, llm=mock_llm, translation_mode=TranslationMode.WORKFLOW
+        tm=mock_tm,
+        llm=mock_llm,
+        telemetry=MagicMock(),
+        translation_mode=TranslationMode.WORKFLOW,
     )
 
     with (
@@ -349,7 +374,10 @@ def test_workflow_force_skips_deprecated_segment(mock_tm, mock_llm):
     mock_tm.load_namespace.return_value = {"dep-1": deprecated}
 
     pipeline = TranslatorPipeline(
-        tm=mock_tm, llm=mock_llm, translation_mode=TranslationMode.WORKFLOW
+        tm=mock_tm,
+        llm=mock_llm,
+        telemetry=MagicMock(),
+        translation_mode=TranslationMode.WORKFLOW,
     )
 
     list(pipeline.run_translation_iter("test_ns", force=True))
@@ -369,7 +397,10 @@ def test_workflow_force_reprocesses_approved_segment(mock_tm, mock_llm):
     mock_tm.load_namespace.return_value = {"approved-1": approved}
 
     pipeline = TranslatorPipeline(
-        tm=mock_tm, llm=mock_llm, translation_mode=TranslationMode.WORKFLOW
+        tm=mock_tm,
+        llm=mock_llm,
+        telemetry=MagicMock(),
+        translation_mode=TranslationMode.WORKFLOW,
     )
 
     with (
@@ -404,6 +435,7 @@ def test_translator_pipeline_dynamic_context(mock_tm, mock_llm):
     pipeline = TranslatorPipeline(
         tm=mock_tm,
         llm=mock_llm,
+        telemetry=MagicMock(),
         context_window={"draft": 1, "critique": 0, "refine": 1},
         translation_mode=TranslationMode.WORKFLOW,
     )
@@ -506,6 +538,7 @@ def test_translator_pipeline_sequential_success(mock_tm):
     pipeline = TranslatorPipeline(
         tm=mock_tm,
         llm=fake_llm,
+        telemetry=MagicMock(),
         translation_mode=TranslationMode.SEQUENTIAL,
     )
 
@@ -532,6 +565,7 @@ def test_refine_validation_retries_are_consistent_across_modes(mock_tm, mode):
     pipeline = TranslatorPipeline(
         tm=mock_tm,
         llm=fake_llm,
+        telemetry=MagicMock(),
         translation_mode=mode,
     )
 
@@ -557,7 +591,10 @@ def test_workflow_refine_force_skips_generated_without_artifacts(mock_tm, mock_l
     mock_tm.load_namespace.return_value = {"1": seg1}
 
     pipeline = TranslatorPipeline(
-        tm=mock_tm, llm=mock_llm, translation_mode=TranslationMode.WORKFLOW
+        tm=mock_tm,
+        llm=mock_llm,
+        telemetry=MagicMock(),
+        translation_mode=TranslationMode.WORKFLOW,
     )
 
     events = list(pipeline.run_translation_iter("test_ns", force=True, stage="refine"))
@@ -582,7 +619,10 @@ def test_workflow_critique_garbage_marks_conflict_without_refine(mock_tm, mock_l
     mock_llm.generate_critique.return_value = LLMResponse(text="prose without json")
 
     pipeline = TranslatorPipeline(
-        tm=mock_tm, llm=mock_llm, translation_mode=TranslationMode.WORKFLOW
+        tm=mock_tm,
+        llm=mock_llm,
+        telemetry=MagicMock(),
+        translation_mode=TranslationMode.WORKFLOW,
     )
 
     list(pipeline.run_translation_iter("test_ns", stage="critique"))

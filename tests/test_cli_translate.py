@@ -22,9 +22,8 @@ def test_cli_translate(mocker):
                 f.write("Hello World\n")
             runner.invoke(app, ["pipeline", "sync", tex_path])
 
-            # Mock the translator pipeline to avoid LLM calls
-            mock_pipeline = MagicMock()
-            mock_pipeline.run_translation_iter.return_value = [
+            mock_strategy = MagicMock()
+            mock_strategy.run_iter.return_value = [
                 {"type": "start", "total": 1},
                 {
                     "type": "progress",
@@ -36,15 +35,15 @@ def test_cli_translate(mocker):
             ]
 
             with patch(
-                "lilt.services.pipeline_service.TranslatorPipeline",
-                return_value=mock_pipeline,
+                "lilt.services.pipeline_service.create_reflection_strategy",
+                return_value=mock_strategy,
             ):
                 result = runner.invoke(app, ["pipeline", "translate", "test"])
 
                 assert result.exit_code == 0
                 assert "Translation completed successfully!" in result.output
 
-                mock_pipeline.run_translation_iter.assert_called_once_with(
+                mock_strategy.run_iter.assert_called_once_with(
                     "test", False, None, None, None
                 )
 

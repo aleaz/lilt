@@ -19,10 +19,11 @@ def test_run_translation_propagates_error_detail_in_status_message():
     ctx.preconditions.require_namespace.return_value = None
     ctx.repo.namespace_session.return_value.__enter__ = MagicMock(return_value=None)
     ctx.repo.namespace_session.return_value.__exit__ = MagicMock(return_value=False)
+    ctx.telemetry = MagicMock()
 
     service = PipelineService("/tmp/ws", workspace_ctx=ctx)
-    mock_pipeline = MagicMock()
-    mock_pipeline.run_translation_iter.return_value = [
+    mock_strategy = MagicMock()
+    mock_strategy.run_iter.return_value = [
         {"type": "start", "total": 1, "stage": "draft"},
         {
             "type": "progress",
@@ -34,8 +35,15 @@ def test_run_translation_propagates_error_detail_in_status_message():
         {"type": "done"},
     ]
 
-    with patch.object(
-        service._trans, "_build_translator_pipeline", return_value=mock_pipeline
+    with (
+        patch(
+            "lilt.services.pipeline_service.ProviderFactory.create",
+            return_value=MagicMock(),
+        ),
+        patch(
+            "lilt.services.pipeline_service.create_reflection_strategy",
+            return_value=mock_strategy,
+        ),
     ):
         events = list(service.run_translation("test_ns"))
 

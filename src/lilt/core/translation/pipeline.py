@@ -1,11 +1,11 @@
-"""Translation pipeline orchestration."""
+"""Compatibility wrapper around reflection strategy selection.
+
+Prefer :func:`create_reflection_strategy` from application services.
+"""
 
 from collections.abc import Iterable
-from pathlib import Path
 
-from lilt.core.translation.protocols import ReflectionStrategy
-from lilt.core.translation.sequential_strategy import SequentialReflectionStrategy
-from lilt.core.translation.workflow_strategy import WorkflowReflectionStrategy
+from lilt.core.translation.strategy_factory import create_reflection_strategy
 from lilt.llm.provider import LLMProvider
 from lilt.models.translation_mode import TranslationMode
 from lilt.telemetry.service import TelemetryService
@@ -13,7 +13,7 @@ from lilt.tm.repository import TMRepository
 
 
 class TranslatorPipeline:
-    """Orchestrates the translation of segments through the LLM."""
+    """Runs reflection via a mode-selected strategy (test / legacy entry)."""
 
     def __init__(
         self,
@@ -24,41 +24,18 @@ class TranslatorPipeline:
         telemetry: TelemetryService | None = None,
         draft_empty_retries: int = 1,
     ):
-        if telemetry is not None:
-            self.telemetry = telemetry
-        else:
-            telemetry_db_path = Path("telemetry.db")
-            if hasattr(tm, "base_dir") and isinstance(tm.base_dir, (str, Path)):
-                telemetry_db_path = Path(tm.base_dir).parent / "telemetry.db"
-            self.telemetry = TelemetryService(telemetry_db_path)
-        self.strategy = TranslatorPipeline._create_strategy(
+        if telemetry is None:
+            raise TypeError(
+                "TranslatorPipeline requires an explicit TelemetryService "
+                "(inject WorkspaceContext.telemetry)."
+            )
+        self.strategy = create_reflection_strategy(
             translation_mode,
             tm,
             llm,
             context_window,
-            self.telemetry,
+            telemetry,
             draft_empty_retries,
-        )
-
-    @staticmethod
-    def _create_strategy(
-        mode: TranslationMode,
-        tm: TMRepository,
-        llm: LLMProvider,
-        context_window: int | dict[str, int],
-        telemetry: TelemetryService,
-        draft_empty_retries: int = 1,
-    ) -> ReflectionStrategy:
-        if mode == TranslationMode.WORKFLOW:
-            return WorkflowReflectionStrategy(
-                tm,
-                llm,
-                context_window,
-                telemetry=telemetry,
-                draft_empty_retries=draft_empty_retries,
-            )
-        return SequentialReflectionStrategy(
-            tm, llm, context_window, telemetry=telemetry
         )
 
     def run_translation_iter(
@@ -69,7 +46,7 @@ class TranslatorPipeline:
         status_filter: str | None = None,
         stage: str | None = None,
     ) -> Iterable[dict]:
-        """Yields progress events while translating segments using the selected Strategy."""
+        """Yield progress events while translating segments."""
         yield from self.strategy.run_iter(
             namespace, force, segment_id, status_filter, stage
         )
