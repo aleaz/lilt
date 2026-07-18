@@ -1,16 +1,17 @@
 """Domain exceptions for LILT.
 
 These types are raised by core, services, and CLI layers.
+The CLI presentation layer maps them to user-facing output; they do not
+inherit from Click or Typer types.
 """
 
-import click
 
-
-class LiltDomainError(click.ClickException):
+class LiltDomainError(Exception):
     """Base exception for all domain logic errors in LILT."""
 
     def __init__(self, message: str):
         super().__init__(message)
+        self.message = message
 
 
 class ProjectNotInitializedError(LiltDomainError):
@@ -81,7 +82,7 @@ class ConfigurationError(LiltDomainError):
 
 
 class TranslationValidationError(LiltDomainError):
-    """Raised when a human-edited translation fails structural validation."""
+    """Raised when a translation fails structural or placeholder validation."""
 
     def __init__(self, message: str):
         super().__init__(message)
@@ -157,5 +158,32 @@ class OutputTokenStarvationError(LiltDomainError):
 
 class BudgetPreflightError(LiltDomainError):
     """Raised when token budget preflight proves a batch is infeasible."""
+
+    pass
+
+
+class WorkspacePathError(LiltDomainError):
+    """Raised when a path escapes the workspace sandbox."""
+
+    def __init__(self, input_path: str):
+        super().__init__(
+            f"Security Error: Path '{input_path}' attempts to traverse outside "
+            "the workspace sandbox."
+        )
+        self.input_path = input_path
+
+
+class EmptyLLMOutputError(LiltDomainError):
+    """Raised when the LLM returns empty text for linguistic source content."""
+
+    def __init__(self, stage: str) -> None:
+        super().__init__(
+            f"LLM returned empty output during '{stage}' for translatable content."
+        )
+        self.stage = stage
+
+
+class ContextLengthExceededError(LiltDomainError):
+    """Raised when prompt plus reserved output exceeds the model context limit."""
 
     pass

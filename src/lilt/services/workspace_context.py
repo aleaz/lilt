@@ -4,9 +4,11 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from lilt.exceptions import WorkspacePathError
 from lilt.services.preconditions import WorkspacePreconditions
 from lilt.telemetry.service import TelemetryService
 from lilt.tm.repository import TMRepository
+from lilt.utils.path_utils import path_is_under_workspace
 
 
 @dataclass
@@ -44,6 +46,19 @@ class WorkspaceContext:
         if self._telemetry is None:
             self._telemetry = TelemetryService(self.telemetry_db_path)
         return self._telemetry
+
+    def resolve_under_workspace(self, input_path: str) -> str:
+        """Resolve ``input_path`` and ensure it stays inside the workspace sandbox."""
+        abs_path = os.path.abspath(
+            input_path
+            if os.path.isabs(input_path)
+            else os.path.join(self.workspace_dir, input_path)
+        )
+        real_path = os.path.realpath(abs_path)
+        real_workspace = os.path.realpath(self.workspace_dir)
+        if not path_is_under_workspace(real_path, real_workspace):
+            raise WorkspacePathError(input_path)
+        return abs_path
 
     @classmethod
     def from_workspace(cls, workspace_dir: str) -> "WorkspaceContext":

@@ -2,11 +2,12 @@
 
 import re
 
+from lilt.exceptions import TranslationValidationError
 from lilt.parser.placeholder_contract import normalize_llm_placeholders, validate_counts
 
 
-class ValidationError(Exception):
-    """Exception raised when a translated segment fails structural or lexical validation."""
+class ValidationError(TranslationValidationError):
+    """Internal structural/lexical validation failure (domain error)."""
 
     def __init__(self, message: str, *, attempt_text: str | None = None) -> None:
         super().__init__(message)

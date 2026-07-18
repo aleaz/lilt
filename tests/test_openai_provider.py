@@ -2,9 +2,8 @@ import httpx
 import pytest
 from openai import APIConnectionError, AuthenticationError
 
-from lilt.exceptions import OutputTokenStarvationError
+from lilt.exceptions import ContextLengthExceededError, OutputTokenStarvationError
 from lilt.llm.openai_provider import (
-    ContextLengthExceededError,
     OpenAIProvider,
     _is_retryable,
 )

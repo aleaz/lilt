@@ -20,14 +20,23 @@ from tenacity import (
     wait_exponential,
 )
 
-from lilt.exceptions import ConfigurationError, OutputTokenStarvationError
+from lilt.exceptions import (
+    ConfigurationError,
+    ContextLengthExceededError,
+    OutputTokenStarvationError,
+)
 from lilt.llm.base_provider import BaseLLMProvider
-from lilt.llm.context_packer import ContextPacker
+from lilt.llm.context_packer import pack_neighbor_context
 from lilt.llm.output_gate import validate_llm_output
 from lilt.llm.prompt_manager import PromptManager
 from lilt.llm.provider import ContextData, LLMResponse
-from lilt.llm.token_budget import BudgetPlan, OutputTokenMode, TokenBudgetPlanner
-from lilt.utils.text_utils import has_linguistic_content
+from lilt.llm.token_budget import (
+    BudgetPlan,
+    OutputTokenMode,
+    call_footprint,
+    plan_token_budget,
+)
+from lilt.parser.linguistic import has_linguistic_content
 from lilt.utils.token_utils import count_tokens
 
 _RETRYABLE_EXCEPTIONS = (
@@ -50,12 +59,6 @@ def _is_retryable(exc: BaseException) -> bool:
 
 
 logger = logging.getLogger(__name__)
-
-
-class ContextLengthExceededError(ValueError):
-    """Raised when input tokens exceed the model's physical context limit."""
-
-    pass
 
 
 def _truncate_to_token_cap(text: str, max_tokens: int) -> tuple[str, bool]:
@@ -252,7 +255,7 @@ class OpenAIProvider(BaseLLMProvider):
             draft_text=draft_text,
             critique_text=critique_text,
         )
-        return TokenBudgetPlanner.plan(
+        return plan_token_budget(
             context_limit=self.model_context_limit,
             max_tokens=self.max_tokens if self.max_tokens is not None else 0,
             fixed_prompt_tokens=fixed,
@@ -308,7 +311,7 @@ class OpenAIProvider(BaseLLMProvider):
             )
             return ""
 
-        block, _neighbor_tokens, truncated = ContextPacker.pack(
+        block, _neighbor_tokens, truncated = pack_neighbor_context(
             backward=backward,
             forward=forward,
             neighbor_budget=plan.neighbor_budget,
@@ -338,7 +341,7 @@ class OpenAIProvider(BaseLLMProvider):
         total_prompt_tokens = sum(
             count_tokens(m["content"], model_name=model) for m in messages
         )
-        plan = TokenBudgetPlanner.plan(
+        plan = plan_token_budget(
             context_limit=self.model_context_limit,
             max_tokens=self.max_tokens if self.max_tokens is not None else 0,
             fixed_prompt_tokens=total_prompt_tokens,
@@ -348,9 +351,7 @@ class OpenAIProvider(BaseLLMProvider):
             chat_template_overhead=self.chat_template_overhead,
             domain_truncated=self.domain_truncated,
         )
-        effective, footprint = TokenBudgetPlanner.call_footprint(
-            total_prompt_tokens, plan
-        )
+        effective, footprint = call_footprint(total_prompt_tokens, plan)
         if footprint > self.model_context_limit:
             raise ContextLengthExceededError(
                 "Prompt plus reserved output exceeds model context limit. "
