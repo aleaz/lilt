@@ -112,7 +112,7 @@ Configurable via `llm.retry.max_attempts`. Exhausted retries surface as segment 
 
 ### Context budgeting
 
-`TokenBudgetPlanner` is the numeric SSOT (no I/O, no `base_url`). Per call:
+`plan_token_budget` is the numeric SSOT (no I/O, no `base_url`). Per call:
 
 ```text
 reserved_output = max_tokens                         # shared_budget
@@ -126,7 +126,7 @@ neighbor_budget = context_limit
 ```
 
 `fixed_prompt_tokens` is measured via `PromptManager.measure` (system with empty
-neighbor block + stage user template). `ContextPacker` fills
+neighbor block + stage user template). `pack_neighbor_context` fills
 `neighbor_budget` with backward-first alternation. Call gate in `_call_llm`:
 
 ```text
@@ -157,14 +157,14 @@ budget fields as top-level `llm` (`model_context_limit`, `max_tokens`,
 
 | Module / class | Responsibility |
 |----------------|----------------|
-| `llm/provider.py` | `LLMProvider` protocol, `LLMResponse`, `stage_model_name` |
+| `llm/provider.py` | `LLMProvider` protocol (`plan_budget`, `stage_model_name`), `LLMResponse` |
 | `llm/openai_provider.py` | OpenAI-compatible client, call gate, starvation check |
-| `llm/token_budget.py` | `TokenBudgetPlanner` / `BudgetPlan` |
-| `llm/context_packer.py` | Neighbor packing under `neighbor_budget` |
-| `llm/budget_preflight.py` | Batch infeasibility abort |
-| `llm/router_provider.py` | Stage delegation and per-stage model resolution |
-| `llm/factory.py` | `ProviderFactory.create` |
-| `llm/base_provider.py` | `stage_model_name` default, `translate_segment_iter` adapter |
+| `llm/token_budget.py` | `plan_token_budget` / `call_footprint` / `BudgetPlan` |
+| `llm/context_packer.py` | `pack_neighbor_context` under `neighbor_budget` |
+| `llm/budget_preflight.py` | Batch infeasibility abort via provider `plan_budget` |
+| `llm/router_provider.py` | Stage delegation, per-stage model resolution, `plan_budget` |
+| `llm/factory.py` | `ProviderFactory.create` (openai / OpenAI-compatible only) |
+| `llm/base_provider.py` | `stage_model_name` default, `plan_budget` stub, `translate_segment_iter` adapter |
 | `llm/critique_parser.py` | Critique JSON parsing |
 | `llm/reflection_pass.py` | Canonical D→C→R stage semantics |
 | `telemetry/service.py` | `record_inference_from_llm` |

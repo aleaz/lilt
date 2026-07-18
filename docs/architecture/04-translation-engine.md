@@ -93,7 +93,7 @@ Priority for neighbor text: **`translation` > `refined` > `draft`**.
 | Workflow critique/refine | Bidirectional (past + future drafts) |
 | Sequential | `resolve_for_refine()`: backward-priority; **forward applies only when future segments already have translations** (typical on `--force` re-runs) |
 
-Token budgeting uses measured prompts plus reserved output via `TokenBudgetPlanner`
+Token budgeting uses measured prompts plus reserved output via `plan_token_budget`
 (see [05-llm-layer](05-llm-layer.md)).
 
 ### Validation (MVP)
@@ -162,11 +162,12 @@ MQM tiers: L1 structural (validators), L2 terminology (lexical mask; validator d
 | Module / class | Responsibility |
 |----------------|----------------|
 | `core/translation/pipeline.py` | `TranslatorPipeline` orchestration |
+| `core/translation/base_strategy.py` | `BaseReflectionStrategy`, `ReflectionStrategy` protocol |
 | `core/translation/workflow_strategy.py` | `WorkflowReflectionStrategy` (breadth-first scheduling + `_execute_*` stage methods) |
 | `core/translation/sequential_strategy.py` | `SequentialReflectionStrategy` |
 | `llm/reflection_pass.py` | Canonical D→C→R stage semantics (`run_draft`, `run_critique`, `run_refine`, `run_reflection_pass`; `REFINE_MAX_VALIDATION_RETRIES`) |
 | `core/translation/context_resolver.py` | Per-stage context windows |
-| `core/translation/progress_events.py` | CLI progress event builders (`progress_pass`, `progress_validation_fail`, `progress_error`) |
+| `core/translation/progress_events.py` | Typed progress events (`StartEvent`, `SubStatusEvent`, `ProgressEvent`, `DoneEvent`) and builders |
 | `models/segment.py` | `StoredSegment` lifecycle transitions (`apply_successful_translation`, `mark_validation_conflict`, `mark_infrastructure_error`) |
 | `models/segment_policy.py` | Eligibility, immutability |
 | `core/review_policy.py` | Review queue statuses |

@@ -136,7 +136,7 @@ IDs (see [02-persistence](02-persistence.md)) keep diffs reviewable.
 ### Environment and secrets
 
 - `load_dotenv` checks workspace `.env` then `.lilt/.env`.
-- `PipelineService._resolve_and_verify_path()` sandboxes file paths within workspace.
+- `WorkspaceContext.resolve_under_workspace()` sandboxes file paths within the workspace.
 
 ## Decisions
 

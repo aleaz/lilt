@@ -11,6 +11,7 @@ modules:
   - src/lilt/parser/dependency_resolver.py
   - src/lilt/parser/analyzer.py
   - src/lilt/parser/roundtrip.py
+  - src/lilt/parser/linguistic.py
   - src/lilt/utils/text_utils.py
 ---
 
@@ -103,9 +104,10 @@ dependencies; `project configure --dry-run` surfaces structural issues.
 
 ### Linguistic bypass
 
-At parse time, `SegmentBlock.is_translatable()` filters segments with no prose
-(e.g. pure placeholders, isolated numerals). At provider time, alphabetic-content
-check short-circuits full D→C→R. Telemetry records `is_heuristic_simple` / bypass flag.
+At parse time, `SegmentBlock.is_translatable()` (via `parser.linguistic.has_linguistic_content`)
+filters segments with no prose (e.g. pure placeholders, isolated numerals). At provider
+time, the same alphabetic-content check short-circuits full D→C→R. Telemetry records
+`is_heuristic_simple` / bypass flag.
 
 ## Decisions
 
@@ -129,7 +131,8 @@ check short-circuits full D→C→R. Telemetry records `is_heuristic_simple` / b
 | `parser/dependency_resolver.py` | Environment alias graph |
 | `parser/analyzer.py` | `ProjectAnalyzer`, gap reports |
 | `parser/roundtrip.py` | `verify_lossless_roundtrip` — byte-for-byte reconstruction check after parse |
-| `utils/text_utils.py` | Linguistic content heuristics |
+| `parser/linguistic.py` | Linguistic content heuristics (`has_linguistic_content`) |
+| `utils/text_utils.py` | Compatibility re-export of `has_linguistic_content` |
 | `llm/base_provider.py` | Provider-side bypass check |
 
 ## Failure modes
