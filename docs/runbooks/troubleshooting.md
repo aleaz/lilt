@@ -18,6 +18,12 @@
 
 **Fix:** Run `lilt tm admin repair NAMESPACE` to skip bad lines and compact. Original file is backed up as `*.corrupt-<timestamp>`.
 
+### Partial Sync
+
+**Symptom:** `Partial sync: already updated namespaces: [...]` after a multi-file sync failure.
+
+**Fix:** The listed namespaces were written before the failure. Fix the failing `.tex` (or dependency), then re-run `lilt pipeline sync` on the root file. No automatic rollback.
+
 ### `NamespaceBusyError`
 
 **Symptom:** `Namespace '...' is in use by another operation.`

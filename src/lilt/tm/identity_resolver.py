@@ -8,6 +8,7 @@ from difflib import SequenceMatcher
 from lilt.models.segment import SegmentStatus, StoredSegment
 from lilt.models.segment_policy import SegmentPolicy
 from lilt.parser.ast_parser import SegmentBlock
+from lilt.validation.validators import SegmentTranslationValidator, ValidationError
 
 
 @dataclass
@@ -121,3 +122,23 @@ class IdentityResolver:
             new_seg.reflection_meta = None
         else:
             new_seg.status = source.status
+
+        if new_seg.translation:
+            try:
+                SegmentTranslationValidator.validate(
+                    new_seg.source_text, new_seg.translation
+                )
+            except ValidationError:
+                new_seg.translation = ""
+                new_seg.draft = None
+                new_seg.critique = None
+                new_seg.refined = None
+                new_seg.reflection_meta = None
+                if new_seg.status in SegmentPolicy.BUILDABLE_STATUSES:
+                    new_seg.status = SegmentStatus.CONFLICT
+                elif new_seg.status not in (
+                    SegmentStatus.CONFLICT,
+                    SegmentStatus.GENERATED,
+                    SegmentStatus.ERROR,
+                ):
+                    new_seg.status = SegmentStatus.GENERATED

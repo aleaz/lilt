@@ -13,6 +13,7 @@ from lilt.cli.ui import (
     print_success,
     print_warning,
 )
+from lilt.exceptions import TMCorruptionError
 from lilt.models.segment import SegmentStatus
 from lilt.services.tm_service import TMService
 from lilt.utils.token_utils import count_tokens
@@ -110,7 +111,7 @@ def list_segments(
 
     elif all_namespaces:
         # List segments across all namespaces
-        results = service.list_all_segments(status, search_query)
+        results, corrupt_namespaces = service.list_all_segments(status, search_query)
 
         table = create_standard_table()
         table.add_column("Namespace", style="cyan")
@@ -142,7 +143,10 @@ def list_segments(
 
         console.print(create_panel(table, title="Translation Memory: All Namespaces"))
         print_info(f"Total matching segments: {len(results)}")
-
+        for ns in corrupt_namespaces:
+            print_warning(
+                f"Skipped corrupt namespace '{ns}'. Run 'lilt tm admin repair {ns}'."
+            )
     else:
         # List namespaces and their segment count/states (fallback to status view)
         _show_status(service, None, True, ctx.obj.get("workspace_dir", "."))
@@ -218,11 +222,12 @@ def _show_status(
         )
 
     if all_namespaces:
-        s = service.get_all_stats()
+        s, corrupt_namespaces = service.get_all_stats()
         title_name = "ALL NAMESPACES"
     else:
         assert namespace is not None, "Namespace must be provided if --all is not set"
         s = service.get_stats(namespace)
+        corrupt_namespaces = []
         title_name = namespace
 
     table = create_standard_table()
@@ -289,6 +294,11 @@ def _show_status(
 
     console.print(create_panel(table, title=f"Translation Progress: {title_name}"))
 
+    for ns in corrupt_namespaces:
+        print_warning(
+            f"Skipped corrupt namespace '{ns}'. Run 'lilt tm admin repair {ns}'."
+        )
+
     # Also list namespaces horizontally if all_namespaces
     if all_namespaces:
         namespaces = service.list_namespaces()
@@ -299,6 +309,8 @@ def _show_status(
             ns_table.add_column("Approved", justify="right", style="green")
             ns_table.add_column("Generated", justify="right", style="dim yellow")
             for ns in namespaces:
+                if ns in corrupt_namespaces:
+                    continue
                 try:
                     ns_stats = service.get_stats(ns)
                     ns_table.add_row(
@@ -307,8 +319,11 @@ def _show_status(
                         str(ns_stats.get("approved", 0)),
                         str(ns_stats.get("generated", 0)),
                     )
-                except Exception:
-                    pass
+                except TMCorruptionError:
+                    print_warning(
+                        f"Skipped corrupt namespace '{ns}'. "
+                        f"Run 'lilt tm admin repair {ns}'."
+                    )
             console.print(create_panel(ns_table, title="Namespaces Overview"))
 
 

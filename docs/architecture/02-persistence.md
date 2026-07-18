@@ -99,6 +99,7 @@ stateDiagram-v2
 2. Align prior and new block hashes with `difflib.SequenceMatcher`.
 3. For replace/insert pairs where IDs differ but similarity exceeds threshold, carry translation forward via `IdentityResolver`.
 4. Human-protected statuses (`locked`, `approved`, `reviewed`) become `conflict` with translation preserved; LLM-only statuses reset to `generated`.
+5. After carry-forward, if the copied translation fails placeholder/syntax validation against the new source, clear the translation (human-protected stays `conflict`; buildable statuses drop to `conflict`).
 
 After carry-forward, `id` and `source_hash` may diverge.
 

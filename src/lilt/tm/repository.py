@@ -203,6 +203,7 @@ class TMRepository:
         ):
             f.write(segment.model_dump_json(by_alias=True) + "\n")
             f.flush()
+            os.fsync(f.fileno())
 
     def reset_namespace(
         self, namespace: str, dry_run: bool = False, *, force: bool = False

@@ -45,6 +45,39 @@ def test_identity_carryover_reviewed_minor_edit():
     assert new_seg.translation == "El zorro marrón rápido salta."
 
 
+def test_identity_carryover_clears_incompatible_placeholders():
+    old_seg = StoredSegment(
+        id="old-id-aaaa",
+        source_hash="hash-old",
+        source_text='Hello <macro id="1"/>',
+        status=SegmentStatus.REVIEWED,
+        translation='Hola <macro id="1"/>',
+    )
+    new_block = _block(
+        "new-id-bbbb",
+        'Hello <macro id="1"/> and <macro id="2"/>',
+        "hash-new",
+    )
+
+    resolver = IdentityResolver(similarity_threshold=0.5)
+    carryovers = resolver.resolve_carryovers([old_seg], [new_block])
+    assert "new-id-bbbb" in carryovers
+
+    new_seg = StoredSegment(
+        id=new_block.id,
+        source_hash=new_block.source_hash,
+        source_text=new_block.masked_text,
+        status=SegmentStatus.GENERATED,
+        placeholders={
+            '<macro id="1"/>': "\\textbf{a}",
+            '<macro id="2"/>': "\\textbf{b}",
+        },
+    )
+    IdentityResolver.apply_carryover(new_seg, carryovers[new_block.id])
+    assert new_seg.status == SegmentStatus.CONFLICT
+    assert new_seg.translation == ""
+
+
 def test_identity_no_carryover_when_dissimilar():
     old_seg = StoredSegment(
         id="old-id",

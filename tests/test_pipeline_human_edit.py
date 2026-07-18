@@ -60,7 +60,35 @@ def test_submit_human_translation_rejects_bad_placeholder():
         assert seg.status == SegmentStatus.REVIEWED
 
 
-def test_idle_translation_message_already_translated():
+def test_update_segment_translation_rejects_bad_placeholder():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        service = _setup_workspace(tmpdir)
+        try:
+            service.update_segment_translation(
+                "mock",
+                "abcd1234",
+                "Texto sin placeholder.",
+                SegmentStatus.CONFLICT,
+            )
+            raise AssertionError("Expected TranslationValidationError")
+        except TranslationValidationError:
+            pass
+        seg = service.get_segment("mock", "abcd1234")
+        assert seg.translation == 'Texto con <macro id="1"/> aqui.'
+        assert seg.status == SegmentStatus.REVIEWED
+
+
+def test_update_segment_translation_same_text_reject_ok():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        service = _setup_workspace(tmpdir)
+        service.update_segment_translation(
+            "mock",
+            "abcd1234",
+            'Texto con <macro id="1"/> aqui.',
+            SegmentStatus.CONFLICT,
+        )
+        seg = service.get_segment("mock", "abcd1234")
+        assert seg.status == SegmentStatus.CONFLICT
     with tempfile.TemporaryDirectory() as tmpdir:
         service = _setup_workspace(tmpdir)
         repo = TMRepository(base_dir=os.path.join(tmpdir, ".lilt", "tm"))

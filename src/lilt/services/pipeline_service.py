@@ -69,25 +69,36 @@ class SyncOrchestrator:
         results: list[SyncResult] = []
 
         for file_path in dependent_files:
-            collisions = find_namespace_collisions(self.ctx.workspace_dir, file_path)
-            if collisions:
-                other = collisions[0]
+            try:
+                collisions = find_namespace_collisions(
+                    self.ctx.workspace_dir, file_path
+                )
+                if collisions:
+                    other = collisions[0]
+                    raise ConfigurationError(
+                        f"Namespace collision: '{file_path}' and '{other}' both map to "
+                        f"TM namespace '{derive_namespace(self.ctx.workspace_dir, file_path)}'. "
+                        "Rename one of the files so directory separators encoded as '__' "
+                        "cannot collide with a flat filename."
+                    )
+                namespace = derive_namespace(self.ctx.workspace_dir, file_path)
+                with self.ctx.repo.namespace_session(namespace):
+                    result = core_sync_file(
+                        file_path,
+                        self.ctx.repo,
+                        namespace,
+                        parser,
+                        similarity_threshold=similarity_threshold,
+                    )
+                results.append(result)
+            except Exception as exc:
+                if not results:
+                    raise
+                done = ", ".join(r.namespace for r in results)
                 raise ConfigurationError(
-                    f"Namespace collision: '{file_path}' and '{other}' both map to "
-                    f"TM namespace '{derive_namespace(self.ctx.workspace_dir, file_path)}'. "
-                    "Rename one of the files so directory separators encoded as '__' "
-                    "cannot collide with a flat filename."
-                )
-            namespace = derive_namespace(self.ctx.workspace_dir, file_path)
-            with self.ctx.repo.namespace_session(namespace):
-                result = core_sync_file(
-                    file_path,
-                    self.ctx.repo,
-                    namespace,
-                    parser,
-                    similarity_threshold=similarity_threshold,
-                )
-            results.append(result)
+                    f"Partial sync: already updated namespaces: [{done}]. "
+                    f"Original error: {exc}"
+                ) from exc
 
         return results
 
@@ -366,11 +377,21 @@ class ReviewManager:
         new_translation: str,
         new_status: SegmentStatus,
     ) -> None:
-        """Persist a human translation and status transition."""
+        """Persist a human translation and status transition.
+
+        Translation text must pass ``SegmentTranslationValidator`` (placeholder
+        multiset / syntax) before write, matching ``submit_human_translation``.
+        """
         with self.ctx.repo.namespace_session(namespace):
             segments = self.ctx.repo.load_namespace(namespace)
             seg = resolve_unique_segment(segments, segment_id, namespace)
             SegmentTransitionPolicy.validate_human_authoring(seg.status, new_status)
+            try:
+                new_translation = SegmentTranslationValidator.normalize_translation(
+                    seg.source_text, new_translation
+                )
+            except ValidationError as exc:
+                raise TranslationValidationError(str(exc)) from exc
             if seg.translation and seg.translation != new_translation:
                 seg.archive_current_translation()
             seg.translation = new_translation

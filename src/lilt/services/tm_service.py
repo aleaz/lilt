@@ -1,5 +1,6 @@
 """Translation Memory CRUD, search, import/export, and statistics."""
 
+import logging
 import os
 
 from lilt.exceptions import (
@@ -14,6 +15,8 @@ from lilt.telemetry.reflection_cost import estimate_reflection_tokens
 from lilt.tm.repository import CorruptLineReport
 from lilt.tm.segment_lookup import resolve_unique_segment
 from lilt.utils.token_utils import count_tokens
+
+logger = logging.getLogger(__name__)
 
 
 class TMService:
@@ -168,8 +171,12 @@ class TMService:
             config = {}
         return estimate_reflection_tokens(segments, config)
 
-    def get_all_stats(self) -> dict[str, int]:
-        """Generate consolidated translation statistics across all namespaces."""
+    def get_all_stats(self) -> tuple[dict[str, int], list[str]]:
+        """Generate consolidated translation statistics across all namespaces.
+
+        Returns:
+            Tuple of (aggregated stats, namespaces skipped due to corruption).
+        """
         namespaces = self.repo.list_namespaces()
         total_stats = {status.value: 0 for status in SegmentStatus}
         total_stats["total"] = 0
@@ -178,15 +185,26 @@ class TMService:
         total_stats["reflection_refined"] = 0
         total_stats["tokens_total"] = 0
         total_stats["tokens_pending"] = 0
+        corrupt_namespaces: list[str] = []
 
         for ns in namespaces:
-            ns_stats = self.get_stats(ns)
+            try:
+                ns_stats = self.get_stats(ns)
+            except TMCorruptionError:
+                corrupt_namespaces.append(ns)
+                logger.warning(
+                    "Skipping corrupt namespace '%s' in stats; "
+                    "run 'lilt tm admin repair %s'.",
+                    ns,
+                    ns,
+                )
+                continue
             for k, v in ns_stats.items():
                 if k not in total_stats:
                     total_stats[k] = 0
                 total_stats[k] += v
 
-        return total_stats
+        return total_stats, corrupt_namespaces
 
     def show_segment(self, namespace: str, segment_id: str) -> StoredSegment:
         """Fetch the full details of a segment by its ID prefix."""
@@ -277,18 +295,30 @@ class TMService:
         self,
         status: str | None = None,
         search: str | None = None,
-    ) -> list[tuple[str, StoredSegment]]:
-        """List segments across all namespaces."""
+    ) -> tuple[list[tuple[str, StoredSegment]], list[str]]:
+        """List segments across all namespaces.
+
+        Returns:
+            Tuple of (matches, namespaces skipped due to corruption).
+        """
         if not os.path.isdir(self.tm_dir):
-            return []
+            return [], []
 
         namespaces = self.list_namespaces()
-        results = []
+        results: list[tuple[str, StoredSegment]] = []
+        corrupt_namespaces: list[str] = []
         for ns in namespaces:
             try:
                 segments = self.list_segments(ns, status, search)
                 for seg in segments:
                     results.append((ns, seg))
-            except Exception:
+            except TMCorruptionError:
+                corrupt_namespaces.append(ns)
+                logger.warning(
+                    "Skipping corrupt namespace '%s' in list; "
+                    "run 'lilt tm admin repair %s'.",
+                    ns,
+                    ns,
+                )
                 continue
-        return results
+        return results, corrupt_namespaces

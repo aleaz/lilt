@@ -97,7 +97,7 @@ Token budgeting uses `tiktoken` against `model_context_limit` minus `max_tokens`
 
 | Validator | When | On failure |
 |-----------|------|------------|
-| `SegmentTranslationValidator` | After draft/refine (workflow); after full pass (sequential); human edits via `submit_human_translation` | `conflict` or CLI error (no persist) |
+| `SegmentTranslationValidator` | After draft/refine (workflow); after full pass (sequential); human edits via `submit_human_translation` / `update_segment_translation` | `conflict` or CLI error (no persist) |
 | `BuildValidator` | At build time | `ValidationError` before stitch |
 
 #### Exception boundaries
