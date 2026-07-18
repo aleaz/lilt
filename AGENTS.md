@@ -7,8 +7,9 @@ Pointer file for AI coding agents (Cursor, Antigravity, and others).
 
 1. Always-on invariants: [`.cursor/rules/lilt-architecture.mdc`](.cursor/rules/lilt-architecture.mdc)
 2. Git discipline: [`.cursor/rules/lilt-git-agent.mdc`](.cursor/rules/lilt-git-agent.mdc)
-3. Deep product docs: [`docs/architecture/README.md`](docs/architecture/README.md)
-4. Dev lifecycle skill: [`.cursor/skills/lilt-dev/SKILL.md`](.cursor/skills/lilt-dev/SKILL.md)
+3. Documentation hub: [`docs/README.md`](docs/README.md)
+4. Deep product docs (L1): [`docs/architecture/README.md`](docs/architecture/README.md)
+5. Dev lifecycle skill: [`.cursor/skills/lilt-dev/SKILL.md`](.cursor/skills/lilt-dev/SKILL.md)
 
 Scoped rules (auto when editing those paths):
 
@@ -20,7 +21,7 @@ Human process: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 ## Hard stops
 
 - Do **not** reintroduce `corpus/`, `tools/corpus/`, `evaluation/`, `lilt corpus`, or `project evaluate`.
-- Do **not** invent CLI commands outside `project` / `pipeline` / `tm` / `telemetry`.
+- Do **not** invent CLI commands outside `project` / `pipeline` / `tm` / `telemetry` (see [docs/reference/cli.md](docs/reference/cli.md)).
 - Do **not** restore `docs/adrs/` — decisions live in L1 guides.
 - Prefer `make ci` before considering a change done.
 

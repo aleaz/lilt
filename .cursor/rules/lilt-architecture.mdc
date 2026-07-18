@@ -9,6 +9,7 @@ LILT (LaTeX Intelligent Localization Tool) is a local-first Python CLI for
 continuous localization of LaTeX projects. ALWAYS respect these invariants.
 
 Deep dive for humans and agents: [docs/architecture/README.md](docs/architecture/README.md).
+Documentation hub (guides/reference/runbooks): [docs/README.md](docs/README.md).
 Do not invent behavior that contradicts the L1 guides.
 
 ## Layers (one direction only)
@@ -65,7 +66,8 @@ Shipped commands (do not invent aliases as if they were top-level):
 
 `PipelineService.compile_pdf` is **service-only** — not a CLI command. Users compile with `pdflatex` / `latexmk` after `pipeline build`.
 
-Canonical reference: [docs/architecture/07-cli-application.md](docs/architecture/07-cli-application.md).
+User-facing CLI tables: [docs/reference/cli.md](docs/reference/cli.md).
+Service-layer detail: [docs/architecture/07-cli-application.md](docs/architecture/07-cli-application.md).
 
 ## LLM providers
 

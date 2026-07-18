@@ -35,10 +35,12 @@ GitHub Actions runs `make ci` on every push to `main`/`master` and on pull reque
 
 Significant architectural changes (TM schema, masking taxonomy, new core commands) must be documented in the relevant guide under `docs/architecture/`. Read [docs/architecture/README.md](docs/architecture/README.md) before proposing major design changes.
 
+User-facing docs (getting started, guides, CLI/config reference, runbooks) live under [docs/README.md](docs/README.md). Update those when the operator-facing interface changes.
+
 ## 4. Pull Request Process
 
 1. Ensure your code conforms to the style guides (`make check-all` or `make ci` must pass).
-2. Update the README.md or docs with details of changes to the interface, if applicable.
+2. Update [docs/](docs/README.md) (and L1 guides when behavior changes) with details of interface or runtime changes, if applicable.
 3. CI runs `make ci` via [`.github/workflows/ci.yml`](.github/workflows/ci.yml); verify locally before opening a PR.
 
 ## 5. Large-Scale Empirical Tests
@@ -62,7 +64,7 @@ If you run large-scale experiments on real books or papers, keep generated works
 Use `.cursor/` as the single source of truth for Cursor and for human onboarding.
 Do not rely on gitignored local paths (for example `.agents/`) for architecture rules.
 
-Deep product documentation remains under [docs/architecture/](docs/architecture/README.md); the Cursor rules pin the path agents must follow without inventing CLI surface, corpus tooling, or ADRs.
+Deep product documentation remains under [docs/](docs/README.md) (hub) and [docs/architecture/](docs/architecture/README.md) (L1 SSOT); the Cursor rules pin the path agents must follow without inventing CLI surface, corpus tooling, or ADRs.
 
 **Optional — Antigravity / AG Kit (local only, not in git):**
 
@@ -81,7 +83,7 @@ When architecture, product boundary, CLI surface, or CI validation commands chan
 3. Keep scoped rules ([parser](.cursor/rules/lilt-parser-masking.mdc), [TM](.cursor/rules/lilt-tm-lifecycle.mdc)) aligned when those domains change.
 4. Update [`.cursor/skills/lilt-dev/SKILL.md`](.cursor/skills/lilt-dev/SKILL.md) only if it mentions the changed behavior explicitly.
 5. Update [`AGENTS.md`](AGENTS.md) only if SSOT paths or hard stops change (keep it pointer-only).
-6. Update this file and the PR template if the human checklist changes; update the matching L1 guide under `docs/architecture/` when runtime behavior changes.
+6. Update this file and the PR template if the human checklist changes; update the matching L1 guide under `docs/architecture/` when runtime behavior changes; update [docs/reference/](docs/reference/cli.md) / guides when the operator CLI or config surface changes.
 7. If you use Antigravity locally, sync any local memory file from step 1.
 
 Do not add duplicate checklists to the skill — link to this file instead.

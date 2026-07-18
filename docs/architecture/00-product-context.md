@@ -50,7 +50,7 @@ To become an **open and LLM-provider-independent platform** for technical locali
 - **PG-004**: Ensure all translations can be reviewed and corrected by humans.
 - **PG-005/006**: Maintain incremental synchronization with *upstream* repositories, minimizing re-translations.
 - **PG-007**: Operate independently of the LLM provider (local or remote models).
-- **PG-009**: Facilitate collaboration and auditing via Git branches and Pull Requests.
+- **PG-009**: Facilitate collaboration and auditing via Git branches and Pull Requests *(product intent; Git automation not shipped — [appendix-deferred](appendix-deferred.md))*.
 
 ### Non-Goals
 
@@ -81,7 +81,7 @@ To become an **open and LLM-provider-independent platform** for technical locali
 4. **Reproducibility**: Every translation is reconstructible using repository data.
 5. **Incremental Translation**: Mandatory reuse to save costs.
 6. **Provider Agnostic**: Modular architecture for LLMs.
-7. **Git Collaboration**: Git as the natural mechanism for distributed review.
+7. **Git Collaboration**: Git as the natural mechanism for distributed review *(user-managed today; automation deferred — [appendix-deferred](appendix-deferred.md))*.
 8. **Extensibility**: Support for terminology rules and custom macros (via Plugins).
 
 ---
@@ -128,16 +128,20 @@ Ten segment statuses govern the lifecycle. Machine translation progresses throug
 
 *Implementation detail: [Platform](01-platform.md). This section states product intent only.*
 
+**Shipped today:** user-managed Git (commit JSONL TM yourself). LILT does **not** auto-branch, auto-commit, or manage remotes — see [appendix-deferred](appendix-deferred.md) (Git automation).
+
+**Aspirational (deferred):** `source/` upstream layout, auto-branch on sync, and richer collaboration automation described below.
+
 ```text
 username/book (Translation Fork)
-├── source/      # Original content (upstream, optional in MVP)
+├── source/      # Deferred: upstream tracking layout (not shipped)
 ├── .lilt/
-│   ├── tm/      # Translation Memory (JSONL, one file per chapter)
-│   └── lilt.yaml    # Project configuration
-└── .cache/      # Regenerable files (not committed)
+│   ├── tm/      # Translation Memory (JSONL, one file per chapter) — shipped
+│   └── lilt.yaml    # Project configuration — shipped
+└── .cache/      # Aspirational: regenerable cache dir (not a current LILT layout requirement)
 ```
 
-Note: Multi-language structure (`.lilt/<lang>/tm/`) and glossary (`glossary.yaml`) will be implemented in Phase 2.
+Note: Multi-language structure (`.lilt/<lang>/tm/`) and glossary (`glossary.yaml`) will be implemented in Phase 2 ([appendix-deferred](appendix-deferred.md)).
 
 When `sync` is executed, the tool parses the specified LaTeX file, calculates new and modified segments, and updates the TM. The user can commit the TM changes and open a Pull Request for human review before running the LLM translations.
 
@@ -168,7 +172,7 @@ Opaque nodes and protected terminology are extracted before the model sees text;
 - **Dependency Graph Parsing**: Automatic graph resolution of `\include`, `\input`, and `.sty` packages to propagate context (e.g., aliases) natively.
 - **Semantic Alias Discovery**: Extensible tracking of custom shortcuts for opening and closing LaTeX environments.
 - **Glossary and Rules**: Support for mandatory terminology and style rules.
-- **Auditing**: Full traceability (who edited, what model generated it, when it was approved).
+- **Auditing**: Full provenance (who edited, which model, when approved) — **deferred**; see [appendix-deferred](appendix-deferred.md) (audit log). TM JSONL + telemetry cover a partial trail today.
 - **Recovery**: Solid *checkpointing*; stopping the process does not mean re-translating everything.
 
 ### Technological and Non-Functional

@@ -19,8 +19,10 @@ modules:
 ## Purpose
 
 Exposes LILT as a Typer CLI with a clean architecture boundary: commands delegate
-to services, services orchestrate core domain logic. Canonical command reference
-for the entire project.
+to services, services orchestrate core domain logic.
+
+**User-facing command tables:** [docs/reference/cli.md](../reference/cli.md).
+This guide covers services, invariants, and application-layer behavior.
 
 ## Invariants
 
@@ -53,51 +55,16 @@ flowchart TB
 
 ## Behavior
 
-### Command reference
+### Command surface
 
-#### `lilt project`
+Full flags and examples: [docs/reference/cli.md](../reference/cli.md).
 
-| Command | Description |
-|---------|-------------|
-| `init` | Create `.lilt/`, default `lilt.yaml`, TM directory |
-| `configure <path>` | Write `custom_macros` (+ optional `--include-aliases`); `--dry-run` for analyze-only |
-
-#### `lilt pipeline`
-
-Namespace is derived from the input `.tex` path during `sync` via `derive_namespace()` (root files: `chapter1.tex` → `chapter1`; nested: `chapters/intro.tex` → `chapters__intro`). See [02-persistence](02-persistence.md).
-
-| Command | Description |
-|---------|-------------|
-| `sync <input_file.tex>` | Parse file (+ dependency graph) and update TM |
-| `translate [namespace]` | Run translation pipeline (`--all` for every namespace) |
-| `build <namespace> <input.tex> <output.tex>` | Reconstruct translated document |
-| `review <namespace>` | Interactive review queue |
-| `edit <namespace> <segment_id>` | Open segment in `$EDITOR` |
-
-**`translate` flags:** `--force`, `--all`, `--id` (prefix match), `--status`
-(aliases via `StatusResolver`), `--stage` (workflow only), `--mode workflow|sequential`.
+Namespace is derived from the input `.tex` path during `sync` via `derive_namespace()`
+(root files: `chapter1.tex` → `chapter1`; nested: `chapters/intro.tex` →
+`chapters__intro`). See [02-persistence](02-persistence.md).
 
 PDF compilation is **not** a CLI command. `PipelineService.compile_pdf` exists for
 library/service use; users compile with `pdflatex` / `latexmk` after `pipeline build`.
-
-#### `lilt tm`
-
-| Command | Description |
-|---------|-------------|
-| `list [namespace]` | List namespaces (no args), segments, `--search`, or `--id` inspect |
-| `status [namespace]` | Token and cost summary (`--all` for consolidated) |
-| `set-status <namespace> <id> <status>` | Manual status (incl. `locked`) |
-| `export <namespace> <file>` | Export CSV/JSON |
-| `import <namespace> <file>` | Import CSV/JSON |
-| `admin prune <namespace>` | Remove `deprecated` segments |
-| `admin reset <namespace>` | Reset machine-translated segments to `generated` (`--force` includes human-reviewed) |
-| `admin repair <namespace>` | Skip corrupt JSONL lines, backup original file, compact namespace |
-
-#### `lilt telemetry`
-
-| Command | Description |
-|---------|-------------|
-| `show` | Inference summary and per-stage breakdown |
 
 ### Editor integration
 
@@ -126,7 +93,7 @@ library/service use; users compile with `pdflatex` / `latexmk` after `pipeline b
 | Service layer | Testable orchestration, thin CLI | Fat command handlers |
 | `click.edit()` for edits | Native multi-line, user editor choice | `textual` full TUI |
 | Consolidated `configure --dry-run` / `tm list` flags | Fewer top-level verbs after M4 | Separate `analyze` / `search` / `show` / `stats` |
-| Canonical command table here | Single source; README links here | Duplicate tables in README |
+| User-facing CLI tables in `docs/reference/cli.md` | Single operator SSOT; this guide keeps services/invariants | Duplicate tables in README / L1 |
 
 ## Implementation map
 
@@ -151,14 +118,6 @@ library/service use; users compile with `pdflatex` / `latexmk` after `pipeline b
 | User aborts editor | No TM change |
 | Corrupt namespace on search | Warning + suggestion to run `tm admin repair` |
 | `NamespaceBusyError` | Message + exit 1; retry when the other operation finishes |
-
-## TM maintenance commands
-
-| Command | Purpose |
-|---------|---------|
-| `tm set-status` | Explicit lifecycle change; `--force` allows reset to `GENERATED` (clears translation and LLM artifacts) |
-| `tm admin reset` | Batch reset of machine/human-reviewed segments to `GENERATED` |
-| `tm admin repair` | Skip corrupt JSONL lines, backup original file, compact namespace |
 
 ## Known gaps
 

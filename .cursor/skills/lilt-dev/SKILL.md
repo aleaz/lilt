@@ -11,6 +11,7 @@ description: >-
 LILT localizes LaTeX via AST parse → mask → TM → LLM reflection → build.
 Invariants: [`.cursor/rules/lilt-architecture.mdc`](../../rules/lilt-architecture.mdc).
 Deep architecture: [docs/architecture/README.md](../../../docs/architecture/README.md).
+Docs hub: [docs/README.md](../../../docs/README.md).
 
 ## Lifecycle (README)
 
@@ -75,7 +76,8 @@ lilt telemetry show
 - Plugins, multi-language `.lilt/<lang>/`, Terminology/Structure validators, HTTP/TUI
 - Restoring `docs/adrs/` — use L1 **Decisions** / [appendix-deferred](../../../docs/architecture/appendix-deferred.md)
 
-Canonical CLI table: [docs/architecture/07-cli-application.md](../../../docs/architecture/07-cli-application.md).
+Canonical CLI table: [docs/reference/cli.md](../../../docs/reference/cli.md).
+Services/invariants: [docs/architecture/07-cli-application.md](../../../docs/architecture/07-cli-application.md).
 
 ## Validation and PR
 

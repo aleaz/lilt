@@ -27,4 +27,5 @@ Please describe the tests that you ran to verify your changes.
 - [ ] I have commented my code, particularly in hard-to-understand areas
 - [ ] My changes generate no new warnings in mypy or ruff
 - [ ] If behavior in `src/lilt/` changed, the relevant L1 guide under `docs/architecture/` was updated (per [documentation update policy](../docs/architecture/README.md#documentation-update-policy))
+- [ ] If operator-facing CLI or config changed, [docs/reference/](../docs/reference/cli.md) / guides under [docs/](../docs/README.md) were updated
 - [ ] If a Known gap was resolved, it was removed from the guide (not left as history)

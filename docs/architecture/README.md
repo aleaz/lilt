@@ -6,7 +6,8 @@ persists them in a Translation Memory (TM), runs an LLM reflection pipeline
 (draft, critique, refine), and reconstructs translated documents for compilation.
 
 Product requirements: [Product Context](00-product-context.md).
-User guide: [README](../../README.md).
+Documentation hub (guides, reference, runbooks): [docs/README.md](../README.md).
+Landing page: [README](../../README.md).
 
 ## Product boundary
 
@@ -24,6 +25,7 @@ Keep generated evaluation workspaces and third-party paper downloads out of this
 | Guide | Domain | Start here if you need to understand... |
 |-------|--------|----------------------------------------|
 | [00-glossary](00-glossary.md) | Canonical domain language | Official vocabulary, synonyms, and disambiguation |
+| [00-product-context](00-product-context.md) | Product intent (PRD) | Goals, personas, roadmap; distinguish shipped vs [deferred](appendix-deferred.md) |
 | [01-platform](01-platform.md) | Configuration and workspace layout | `lilt.yaml`, `.lilt/` directory, storage formats |
 | [02-persistence](02-persistence.md) | Translation Memory | Segment schema, lifecycle, identity, JSONL I/O |
 | [03-parser-masking](03-parser-masking.md) | Parser and masking | AST parsing, placeholders, linguistic bypass |
@@ -67,6 +69,36 @@ flowchart TB
   translate --> tm
   tm --> build["Build reconstruct"]
   build --> out["Translated tex"]
+```
+
+Operator CLI flow (init → configure → sync → translate → review → build):
+
+```mermaid
+flowchart TD
+    init["lilt project init"] --> configure["lilt project configure"]
+    configure --> sync["lilt pipeline sync"]
+    sync --> translate["lilt pipeline translate"]
+    translate --> review["lilt pipeline review and edit"]
+    review --> build["lilt pipeline build"]
+    build --> compile["pdflatex in shadow dir"]
+
+    subgraph core [Core subsystems]
+        parser["Parser and Masking"]
+        tm[(Translation Memory)]
+        engine["Translation Engine"]
+        llm["LLM Layer"]
+        validation["Validation"]
+    end
+
+    sync --> parser
+    sync --> tm
+    translate --> engine
+    engine --> llm
+    engine --> validation
+    engine --> tm
+    build --> parser
+    build --> tm
+    build --> validation
 ```
 
 ## Where in code
