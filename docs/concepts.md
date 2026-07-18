@@ -30,7 +30,7 @@ LILT treats LaTeX translation as a software engineering problem. Instead of send
 
 ## Maturity
 
-LILT **0.1.0** is a **public beta** approaching 1.0. Core pipeline (sync, translate, build, review, TM management, telemetry) is implemented and tested. Phase 2 features (plugins, glossary validators, multi-language layout) are documented as deferred in [appendix-deferred](architecture/appendix-deferred.md).
+LILT is an **unreleased public beta** on the **0.1.0** package line (no tagged Git release yet), approaching 1.0. Core pipeline (sync, translate, build, review, TM management, telemetry) is implemented and tested. Phase 2 features (plugins, glossary validators, multi-language layout) are documented as deferred in [appendix-deferred](architecture/appendix-deferred.md).
 
 ## Audience
 

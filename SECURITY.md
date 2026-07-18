@@ -2,9 +2,13 @@
 
 ## Supported versions
 
-| Version | Supported |
-|---------|-----------|
-| 0.1.x   | Yes       |
+There is no tagged release yet. Security fixes target the tip of `main`
+(pre-release **0.1.x** package line in development).
+
+| Line | Supported |
+|------|-----------|
+| `main` / pre-release 0.1.x | Yes |
+| Tagged releases | None yet |
 
 ## Reporting a vulnerability
 
