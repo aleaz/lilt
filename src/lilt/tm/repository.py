@@ -351,6 +351,10 @@ class TMRepository:
                 SegmentTransitionPolicy.validate(seg.status, SegmentStatus.REVIEWED)
             except InvalidTransitionError:
                 return False
+            try:
+                SegmentTranslationValidator.validate(seg.source_text, new_translation)
+            except ValidationError:
+                return False
             if seg.translation:
                 seg.history.append(
                     SegmentHistoryEntry(

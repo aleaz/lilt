@@ -43,7 +43,9 @@ class BaseReflectionStrategy:
         model_name: str,
         finish_reason: str = "stop",
     ) -> None:
-        if self.telemetry:
+        if not self.telemetry:
+            return
+        try:
             result = self.telemetry.record_inference_from_llm(
                 self.llm,
                 namespace,
@@ -55,6 +57,8 @@ class BaseReflectionStrategy:
             )
             if not result.success:
                 logger.warning("Telemetry write failed: %s", result.error)
+        except Exception as exc:
+            logger.warning("Telemetry recording raised unexpectedly: %s", exc)
 
     def _stage_model(self, stage: str) -> str:
         return self.llm.stage_model_name(stage)

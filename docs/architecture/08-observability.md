@@ -101,6 +101,7 @@ Implemented in `telemetry/reflection_cost.py` and exposed via `TMService.get_sta
 |-----------|--------|
 | Missing telemetry.db | Created on first record |
 | DB locked | Rare; single-user CLI assumed |
+| Write / prompt-hash failure | Soft-fail: log warning; translation outcome unchanged |
 
 ## Known gaps
 

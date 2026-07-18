@@ -120,6 +120,37 @@ def test_import_status_only_rejects_invalid_translation():
         assert loaded["segph"].status == SegmentStatus.REFINED
 
 
+def test_import_translation_change_rejects_placeholder_mismatch():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo = TMRepository(base_dir=tmpdir)
+        repo.save_namespace(
+            "mock",
+            [
+                StoredSegment(
+                    id="segph",
+                    source_hash="segph",
+                    source_text='Hello <macro id="1"/>',
+                    status=SegmentStatus.REFINED,
+                    translation='Hola <macro id="1"/>',
+                )
+            ],
+        )
+        csv_path = os.path.join(tmpdir, "bad_translation.csv")
+        with open(csv_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["ID", "Status", "Source", "Translation"])
+            writer.writerow(
+                ["segph", "reviewed", 'Hello <macro id="1"/>', "Hola sin placeholder"]
+            )
+
+        updated, skipped = repo.import_data("mock", csv_path, FileFormat.CSV)
+        assert updated == 0
+        assert skipped == 1
+        loaded = repo.load_namespace("mock")
+        assert loaded["segph"].translation == 'Hola <macro id="1"/>'
+        assert loaded["segph"].status == SegmentStatus.REFINED
+
+
 def test_reset_namespace():
     with tempfile.TemporaryDirectory() as tmpdir:
         repo = setup_mock_repo(tmpdir)

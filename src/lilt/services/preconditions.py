@@ -9,6 +9,7 @@ from lilt.exceptions import (
 from lilt.models.config import LiltConfig
 from lilt.tm.repository import TMRepository
 from lilt.utils.config_loader import load_lilt_config
+from lilt.utils.path_utils import path_is_under_workspace
 
 
 class WorkspacePreconditions:
@@ -36,11 +37,15 @@ class WorkspacePreconditions:
         self.require_initialized()
         return load_lilt_config(self.config_path)
 
-    def require_namespace(self, namespace: str) -> None:
-        """Raise if the namespace JSONL file does not exist or is empty."""
+    def require_namespace_file_exists(self, namespace: str) -> None:
+        """Raise if the namespace JSONL file is missing (does not load contents)."""
         namespace_path = os.path.join(self.tm_dir, f"{namespace}.jsonl")
         if not os.path.exists(namespace_path):
             raise NamespaceNotFoundError(namespace)
+
+    def require_namespace(self, namespace: str) -> None:
+        """Raise if the namespace JSONL file does not exist or is empty."""
+        self.require_namespace_file_exists(namespace)
         segments = self.repo.load_namespace(namespace)
         if not segments:
             raise NamespaceNotFoundError(namespace)
@@ -52,7 +57,7 @@ class WorkspacePreconditions:
         )
         real_path = os.path.realpath(abs_path)
         real_workspace = os.path.realpath(self.workspace_dir)
-        if not real_path.startswith(real_workspace):
+        if not path_is_under_workspace(real_path, real_workspace):
             raise ValueError(
                 f"Security Error: Path '{path}' attempts to traverse outside the workspace sandbox."
             )

@@ -149,3 +149,36 @@ def test_builder_includes_locked_segment(tmpdir):
         content = f.read()
 
     assert "Hola Mundo\n" in content
+
+
+def test_builder_empty_map_with_uppercase_placeholder_raises(tmpdir):
+    mock_tm = MagicMock()
+    mock_parser = MagicMock()
+
+    class FakeEngine:
+        mapping: dict = {}
+
+    class FakeBlock:
+        def __init__(self):
+            self.id = "1"
+            self.raw_text = "See X\n"
+            self.source_hash = "a"
+            self.engine = FakeEngine()
+
+        def is_translatable(self):
+            return True
+
+    mock_parser.parse_file.return_value = [FakeBlock()]
+    seg1 = StoredSegment(
+        id="1",
+        source_hash="a",
+        source_text='See <MACRO id="1"/>',
+        status=SegmentStatus.APPROVED,
+        translation="See Y",
+        placeholders={},
+    )
+    mock_tm.load_namespace.return_value = {"1": seg1}
+    builder = Builder(tm=mock_tm, parser=mock_parser)
+    out_file = os.path.join(tmpdir, "out.tex")
+    with pytest.raises(BuildError, match="no placeholder mapping"):
+        builder.build_file("in.tex", out_file, "test_ns")

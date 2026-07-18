@@ -27,6 +27,7 @@ transitioned through their lifecycle.
 - **`error`** is infrastructure/API failure; **`conflict`** is linguistic or validation failure.
 - Append-only writes during translation; compaction at phase end.
 - Namespace = relative path of source `.tex` encoded flat (e.g. `main.tex` → `main.jsonl`; `chapters/intro.tex` → `chapters__intro.jsonl`). Root-level files keep the basename for backward compatibility.
+- Sync fails loud when two distinct `.tex` paths under the workspace derive the same namespace (e.g. `chapters/intro.tex` vs `chapters__intro.tex`); silent TM merge is not allowed.
 
 ## Configuration
 
@@ -136,6 +137,8 @@ This ensures durability and interrupt handling during crashes.
 `SegmentTransitionPolicy` defines allowed CLI/import transitions. Human paths:
 `refined → reviewed → approved`; `DEPRECATED` only via sync; reset to `generated`
 requires `--force`. Enforced in `TMService.update_segment_status` and TM import.
+Import rows that change translation text must pass `SegmentTranslationValidator`
+(placeholder multiset / syntax); failing rows are skipped.
 
 ## Decisions
 
@@ -175,7 +178,7 @@ requires `--force`. Enforced in `TMService.update_segment_status` and TM import.
 | Source change on human segment | `conflict` | Manual merge via editor |
 | Minor upstream edit (aligned) | Carry-forward or `generated` | Automatic via identity resolver |
 | Process crash mid-run | Partial append lines | Reload; resume translate |
-| Corrupt JSONL line | `TMCorruptionError` on load | `lilt tm admin repair` (skips bad lines, backs up file) |
+| Corrupt JSONL line | `TMCorruptionError` on strict load | `lilt tm admin repair` (file-exists check only, then skips bad lines and backs up) |
 | Concurrent namespace mutation | `NamespaceBusyError` | Wait for the other operation; do not run sync and translate in parallel on the same namespace |
 | Lock contention | `TMConcurrencyError` after retries | Re-run command |
 | Illegal status transition | `ValidationError` / domain error | Use allowed transition or `--force` |
@@ -192,6 +195,7 @@ call paths is deferred (see [appendix-deferred](appendix-deferred.md)).
 
 - Full `audit_log` (who edited, model provenance per edit) deferred to Phase 2.
 - AST-node diffing for structural moves without text overlap not implemented.
+- Namespace encoding still uses `__` for separators; collisions are detected at sync rather than prevented by a collision-free encoding (migration of existing TM IDs deferred).
 
 ## Open / deferred
 

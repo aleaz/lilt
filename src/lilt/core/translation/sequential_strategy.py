@@ -96,21 +96,6 @@ class SequentialReflectionStrategy(BaseReflectionStrategy):
                             translated_text = event["text"]
                             result_meta = event.get("meta")
 
-                            if self.telemetry:
-                                meta = event.get("meta", {})
-                                simulated_res = LLMResponse(
-                                    text=translated_text,
-                                    duration_ms=int((time.time() - start_time) * 1000),
-                                    bypass=meta.get("bypass", False),
-                                )
-                                self._record_telemetry(
-                                    namespace=namespace,
-                                    segment_id=seg.id,
-                                    stage="sequential",
-                                    res=simulated_res,
-                                    model_name=self._stage_model("sequential"),
-                                )
-
                     if not saw_result:
                         raise EmptyLLMOutputError("sequential")
 
@@ -120,6 +105,20 @@ class SequentialReflectionStrategy(BaseReflectionStrategy):
                     if result_meta:
                         seg.reflection_meta = ReflectionMeta(**result_meta)
                     seg.apply_successful_translation(translated_text)
+                    if self.telemetry and translated_text:
+                        meta = result_meta or {}
+                        simulated_res = LLMResponse(
+                            text=translated_text,
+                            duration_ms=int((time.time() - start_time) * 1000),
+                            bypass=meta.get("bypass", False),
+                        )
+                        self._record_telemetry(
+                            namespace=namespace,
+                            segment_id=seg.id,
+                            stage="sequential",
+                            res=simulated_res,
+                            model_name=self._stage_model("sequential"),
+                        )
                     result_event = progress_pass(seg.id, time.time() - start_time)
                 except ValidationError as exc:
                     logger.error(f"Validation failed for {seg.id}: {exc}")
@@ -148,7 +147,13 @@ class SequentialReflectionStrategy(BaseReflectionStrategy):
                     result_event = progress_validation_fail(
                         seg.id, time.time() - start_time, str(exc)
                     )
-                except (MultipleSegmentsFoundError, EmptyLLMOutputError):
+                except EmptyLLMOutputError as exc:
+                    logger.error(f"Empty LLM output for {seg.id}: {exc}")
+                    seg.mark_infrastructure_error(exc)
+                    result_event = progress_error(
+                        seg.id, time.time() - start_time, str(exc), kind="llm"
+                    )
+                except MultipleSegmentsFoundError:
                     raise
                 except Exception as exc:
                     logger.error(f"LLM failure for {seg.id}: {exc}")

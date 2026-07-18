@@ -113,7 +113,10 @@ class BuildValidator:
         if persisted == fresh:
             return
         if not persisted and fresh:
-            return
+            raise ValidationError(
+                f"Segment '{segment_id}' has no persisted placeholders but the "
+                "re-parsed source produced a mapping. Run 'lilt pipeline sync'."
+            )
         if persisted and not fresh:
             raise ValidationError(
                 f"Segment '{segment_id}' has persisted placeholders but the "

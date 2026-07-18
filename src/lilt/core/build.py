@@ -125,8 +125,8 @@ class Builder:
                 )
 
             if use_translation and db_seg is not None:
-                if not db_seg.placeholders and re.search(
-                    r"<[a-z_]+ id=\"\d+\"/>", db_seg.source_text
+                if not db_seg.placeholders and PLACEHOLDER_RE.search(
+                    db_seg.source_text
                 ):
                     raise BuildError(
                         f"Segment '{seg_id}' has no placeholder mapping in the TM. "

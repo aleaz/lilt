@@ -63,7 +63,9 @@ translation to prevent LaTeX comment swallowing (e.g. lost `\n\n` after blocks).
 
 Build unmasks using `StoredSegment.placeholders` saved at sync time.
 `BuildValidator` compares persisted mapping against current re-parse mapping;
-mismatch raises `ValidationError` — re-sync required.
+mismatch raises `ValidationError` — re-sync required. An empty persisted map
+with a non-empty fresh parse is drift (not a soft bypass). Empty-map prechecks
+use the case-insensitive placeholder contract regex.
 
 ### Preamble injections
 

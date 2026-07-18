@@ -146,29 +146,37 @@ class TelemetryService:
         model_name: str,
         finish_reason: str = "stop",
     ) -> TelemetryResult:
-        """Build and persist a single inference record from an LLM response."""
-        is_heuristic = getattr(res, "bypass", False)
-        record = InferenceRecord(
-            id=str(uuid.uuid4()),
-            segment_id=segment_id,
-            namespace=namespace,
-            provider=llm.__class__.__name__,
-            model=model_name,
-            stage=stage,
-            prompt_version=llm.get_prompt_version(stage),
-            started_at=res.started_at,
-            finished_at=res.finished_at,
-            duration_ms=res.duration_ms,
-            ttft_ms=res.ttft_ms,
-            usage=TokenUsage(
-                prompt_tokens=res.prompt_tokens,
-                completion_tokens=res.completion_tokens,
-                cached_tokens=res.cached_tokens,
-            ),
-            usage_source="api",
-            finish_reason=finish_reason,
-            is_heuristic_simple=is_heuristic,
-        )
+        """Build and persist a single inference record from an LLM response.
+
+        Prompt-version resolution failures soft-fail like SQLite write errors so
+        observability never mutates translation outcomes.
+        """
+        try:
+            is_heuristic = getattr(res, "bypass", False)
+            record = InferenceRecord(
+                id=str(uuid.uuid4()),
+                segment_id=segment_id,
+                namespace=namespace,
+                provider=llm.__class__.__name__,
+                model=model_name,
+                stage=stage,
+                prompt_version=llm.get_prompt_version(stage),
+                started_at=res.started_at,
+                finished_at=res.finished_at,
+                duration_ms=res.duration_ms,
+                ttft_ms=res.ttft_ms,
+                usage=TokenUsage(
+                    prompt_tokens=res.prompt_tokens,
+                    completion_tokens=res.completion_tokens,
+                    cached_tokens=res.cached_tokens,
+                ),
+                usage_source="api",
+                finish_reason=finish_reason,
+                is_heuristic_simple=is_heuristic,
+            )
+        except Exception as e:
+            logger.error(f"Failed to build inference telemetry record: {e}")
+            return TelemetryResult(success=False, error=str(e))
         return self.record_inference(record)
 
     def get_global_summary(self, namespace: str | None = None) -> dict | None:

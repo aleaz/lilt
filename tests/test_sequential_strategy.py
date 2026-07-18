@@ -90,3 +90,62 @@ def test_sequential_strategy_bypass_records_heuristic_telemetry(mock_tm, mock_ll
     telemetry.record_inference_from_llm.assert_called_once()
     res = telemetry.record_inference_from_llm.call_args.args[4]
     assert res.bypass is True
+
+
+def test_sequential_empty_output_marks_error_and_continues(mock_tm, mock_llm):
+    seg1 = StoredSegment(
+        id="1", source_hash="h1", source_text="Hello", status=SegmentStatus.GENERATED
+    )
+    seg2 = StoredSegment(
+        id="2", source_hash="h2", source_text="World", status=SegmentStatus.GENERATED
+    )
+    mock_tm.load_namespace.return_value = {"1": seg1, "2": seg2}
+
+    def _iter(source_text, context=None):
+        if source_text == "Hello":
+            return iter([{"type": "status", "message": "Working..."}])
+        return iter(
+            [
+                {"type": "result", "text": "Mundo", "meta": {"used": True}},
+            ]
+        )
+
+    mock_llm.translate_segment_iter.side_effect = _iter
+    strategy = SequentialReflectionStrategy(tm=mock_tm, llm=mock_llm)
+
+    with patch(
+        "lilt.core.translation.sequential_strategy.SegmentTranslationValidator.validate"
+    ):
+        events = list(strategy.run_iter("test_ns", force=True))
+
+    assert seg1.status == SegmentStatus.ERROR
+    assert seg1.error_meta is not None
+    assert seg2.status == SegmentStatus.REFINED
+    assert any(
+        e.get("type") == "progress" and "FAIL" in str(e.get("status", ""))
+        for e in events
+    )
+    assert events[-1]["type"] == "done"
+
+
+def test_sequential_telemetry_failure_does_not_mark_error(mock_tm, mock_llm):
+    seg = StoredSegment(
+        id="1", source_hash="h1", source_text="Hello", status=SegmentStatus.GENERATED
+    )
+    mock_tm.load_namespace.return_value = {"1": seg}
+    mock_llm.translate_segment_iter.return_value = [
+        {"type": "result", "text": "Hola", "meta": {"used": True}},
+    ]
+    telemetry = MagicMock()
+    telemetry.record_inference_from_llm.side_effect = RuntimeError("prompt missing")
+    strategy = SequentialReflectionStrategy(
+        tm=mock_tm, llm=mock_llm, telemetry=telemetry
+    )
+
+    with patch(
+        "lilt.core.translation.sequential_strategy.SegmentTranslationValidator.validate"
+    ):
+        list(strategy.run_iter("test_ns", force=True))
+
+    assert seg.status == SegmentStatus.REFINED
+    assert seg.translation == "Hola"

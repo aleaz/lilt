@@ -6,8 +6,9 @@ import tempfile
 
 import pytest
 
-from lilt.exceptions import TMCorruptionError
+from lilt.exceptions import NamespaceNotFoundError, TMCorruptionError
 from lilt.models.segment import SegmentStatus, StoredSegment
+from lilt.services.tm_service import TMService
 from lilt.tm.repository import TMRepository
 
 
@@ -79,3 +80,30 @@ def test_repair_dry_run_does_not_rewrite_file():
         with open(path, encoding="utf-8") as f:
             assert f.read().count("\n") == 2
         assert not glob.glob(os.path.join(tmpdir, "main.jsonl.corrupt-*"))
+
+
+def test_tm_service_repair_succeeds_on_corrupt_namespace():
+    """Service repair must not strict-load before repair_namespace (BUG-1)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tm_dir = os.path.join(tmpdir, ".lilt", "tm")
+        os.makedirs(tm_dir)
+        path = os.path.join(tm_dir, "main.jsonl")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(_valid_segment_json() + "\n")
+            f.write("{not valid json}\n")
+
+        service = TMService(tmpdir)
+        corrupt = service.repair("main", dry_run=False)
+        assert len(corrupt) == 1
+
+        segments = service.repo.load_namespace("main")
+        assert len(segments) == 1
+        assert "seg1" in segments
+
+
+def test_tm_service_repair_missing_file_raises():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        os.makedirs(os.path.join(tmpdir, ".lilt", "tm"))
+        service = TMService(tmpdir)
+        with pytest.raises(NamespaceNotFoundError):
+            service.repair("missing")

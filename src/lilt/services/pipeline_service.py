@@ -12,6 +12,7 @@ from lilt.core.sync import sync_file as core_sync_file
 from lilt.core.translation import TranslatorPipeline
 from lilt.exceptions import (
     BuildError,
+    ConfigurationError,
     TranslationValidationError,
 )
 from lilt.llm.factory import ProviderFactory
@@ -27,7 +28,8 @@ from lilt.parser.ast_parser import LatexParser
 from lilt.parser.dependency_resolver import DependencyResolver
 from lilt.services.workspace_context import WorkspaceContext
 from lilt.tm.segment_lookup import resolve_unique_segment
-from lilt.utils.namespace import derive_namespace
+from lilt.utils.namespace import derive_namespace, find_namespace_collisions
+from lilt.utils.path_utils import path_is_under_workspace
 from lilt.validation.validators import (
     SegmentTranslationValidator,
     ValidationError,
@@ -67,6 +69,15 @@ class SyncOrchestrator:
         results: list[SyncResult] = []
 
         for file_path in dependent_files:
+            collisions = find_namespace_collisions(self.ctx.workspace_dir, file_path)
+            if collisions:
+                other = collisions[0]
+                raise ConfigurationError(
+                    f"Namespace collision: '{file_path}' and '{other}' both map to "
+                    f"TM namespace '{derive_namespace(self.ctx.workspace_dir, file_path)}'. "
+                    "Rename one of the files so directory separators encoded as '__' "
+                    "cannot collide with a flat filename."
+                )
             namespace = derive_namespace(self.ctx.workspace_dir, file_path)
             with self.ctx.repo.namespace_session(namespace):
                 result = core_sync_file(
@@ -417,7 +428,7 @@ class PipelineService:
         )
         real_path = os.path.realpath(abs_path)
         real_workspace = os.path.realpath(self.workspace_dir)
-        if not real_path.startswith(real_workspace):
+        if not path_is_under_workspace(real_path, real_workspace):
             raise ValueError(
                 f"Security Error: Path '{input_path}' attempts to traverse outside the workspace sandbox."
             )

@@ -107,7 +107,7 @@ Token budgeting uses `tiktoken` against `model_context_limit` minus `max_tokens`
 | `ValidationError` | `validation/validators.py` | Structural check fails inside engine or build | Segment → `conflict`; build aborts before write |
 | `TranslationValidationError` | `lilt/exceptions.py` | Human edit (`pipeline edit` / `review`) fails validation | CLI message; TM unchanged |
 | `PreconditionError` | `lilt/exceptions.py` | Invalid segment state before LLM call | Propagates to CLI (not `error` / `conflict`) |
-| `EmptyLLMOutputError` | `llm/output_gate.py` | Provider returns empty text for non-trivial source | Fast-fail by default (`draft_empty_retries=1`); segment → `error` with detail in CLI progress |
+| `EmptyLLMOutputError` | `llm/output_gate.py` | Provider returns empty text for non-trivial source | Fast-fail by default (`draft_empty_retries=1`); segment → `error` with detail in CLI progress (workflow and sequential); sequential continues the batch |
 
 `ValidationError` is an internal signal caught by strategies and build code.
 `TranslationValidationError` is the user-facing domain error for interactive edits.

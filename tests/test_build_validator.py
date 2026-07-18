@@ -15,3 +15,13 @@ def test_drift_raises_when_keys_differ():
     fresh = {'<macro id="2"/>': "\\textbf{x}"}
     with pytest.raises(ValidationError, match="drift"):
         BuildValidator.validate_placeholder_mapping("seg1", persisted, fresh)
+
+
+def test_empty_persisted_with_fresh_mapping_raises():
+    fresh = {'<macro id="1"/>': "\\textbf{x}"}
+    with pytest.raises(ValidationError, match="no persisted placeholders"):
+        BuildValidator.validate_placeholder_mapping("seg1", {}, fresh)
+
+
+def test_both_empty_mappings_ok():
+    BuildValidator.validate_placeholder_mapping("seg1", {}, {})

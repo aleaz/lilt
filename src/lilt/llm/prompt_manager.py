@@ -78,4 +78,4 @@ class PromptManager:
             return f"{template_name}:{digest}"
         except Exception as e:
             logger.error(f"Failed to resolve template {filename}: {e}")
-            raise
+            return "unknown"

@@ -260,8 +260,12 @@ class TMService:
     def repair(
         self, namespace: str, *, dry_run: bool = False
     ) -> list[CorruptLineReport]:
-        """Repair a namespace by skipping corrupt JSONL lines and compacting."""
-        self.ctx.preconditions.require_namespace(namespace)
+        """Repair a namespace by skipping corrupt JSONL lines and compacting.
+
+        Uses file-existence only (not a strict load) so corrupt namespaces remain
+        repairable via ``lilt tm admin repair``.
+        """
+        self.ctx.preconditions.require_namespace_file_exists(namespace)
         with self.repo.namespace_session(namespace):
             return self.repo.repair_namespace(namespace, dry_run=dry_run)
 
