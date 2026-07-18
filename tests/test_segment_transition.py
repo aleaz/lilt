@@ -79,3 +79,12 @@ def test_human_authoring_rejects_to_drafted():
         SegmentTransitionPolicy.validate_human_authoring(
             SegmentStatus.GENERATED, SegmentStatus.DRAFTED
         )
+
+
+def test_matrix_rejects_machine_mid_pipeline_edges():
+    with pytest.raises(InvalidTransitionError):
+        SegmentTransitionPolicy.validate(SegmentStatus.GENERATED, SegmentStatus.DRAFTED)
+    with pytest.raises(InvalidTransitionError):
+        SegmentTransitionPolicy.validate(SegmentStatus.DRAFTED, SegmentStatus.CRITIQUED)
+    with pytest.raises(InvalidTransitionError):
+        SegmentTransitionPolicy.validate(SegmentStatus.CRITIQUED, SegmentStatus.REFINED)

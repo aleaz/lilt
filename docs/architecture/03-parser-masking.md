@@ -12,7 +12,6 @@ modules:
   - src/lilt/parser/analyzer.py
   - src/lilt/parser/roundtrip.py
   - src/lilt/parser/linguistic.py
-  - src/lilt/utils/text_utils.py
 ---
 
 # Parser and Masking
@@ -132,7 +131,7 @@ time, the same alphabetic-content check short-circuits full D→C→R. Telemetry
 | `parser/analyzer.py` | `ProjectAnalyzer`, gap reports |
 | `parser/roundtrip.py` | `verify_lossless_roundtrip` — byte-for-byte reconstruction check after parse |
 | `parser/linguistic.py` | Linguistic content heuristics (`has_linguistic_content`) |
-| `utils/text_utils.py` | Compatibility re-export of `has_linguistic_content` |
+| `utils/path_utils.py` | Workspace path containment helpers |
 | `llm/base_provider.py` | Provider-side bypass check |
 
 ## Failure modes

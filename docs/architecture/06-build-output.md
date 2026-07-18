@@ -91,7 +91,8 @@ Segments in `conflict` keep source language text; build warns but does not fail.
 |----------------|----------------|
 | `core/build.py` | Stitch, whitespace shadowing, injections |
 | `validation/validators.py` | `BuildValidator` |
-| `services/pipeline_service.py` | `build` orchestration; `compile_pdf` service-only helper |
+| `services/pipeline_service.py` | `build` orchestration |
+| `services/pdf_compile.py` | `PdfCompileService` — `compile_pdf` service-only helper |
 | `cli/commands/pipeline.py` | `build` command |
 
 ## Failure modes

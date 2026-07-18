@@ -29,7 +29,7 @@ This guide covers services, invariants, and application-layer behavior.
 - CLI → Services → Core/TM/Parser/LLM (no business logic in command handlers).
 - `WorkspaceContext` is the composition root.
 - Domain exceptions map to user-facing messages via `lilt.exceptions`.
-- Path arguments sandboxed to workspace via `PipelineService`.
+- Path arguments sandboxed to workspace via `WorkspaceContext.resolve_under_workspace()`.
 
 ## Configuration
 
@@ -63,8 +63,9 @@ Namespace is derived from the input `.tex` path during `sync` via `derive_namesp
 (root files: `chapter1.tex` → `chapter1`; nested: `chapters/intro.tex` →
 `chapters__intro`). See [02-persistence](02-persistence.md).
 
-PDF compilation is **not** a CLI command. `PipelineService.compile_pdf` exists for
-library/service use; users compile with `pdflatex` / `latexmk` after `pipeline build`.
+PDF compilation is **not** a CLI command. `PdfCompileService` (via
+`PipelineService.compile_pdf`) exists for library/service use; users compile with
+`pdflatex` / `latexmk` after `pipeline build`.
 
 ### Editor integration
 
@@ -81,7 +82,8 @@ library/service use; users compile with `pdflatex` / `latexmk` after `pipeline b
 | Service | Responsibility |
 |---------|----------------|
 | `ProjectService` | Init, config load/save, configure / dry-run analyze |
-| `PipelineService` | Sync, translate, build, review, edit; `compile_pdf` service-only |
+| `PipelineService` | Sync, translate, build, review, edit |
+| `PdfCompileService` | Service-only `pdflatex`/bib compilation helper |
 | `TMService` | List, search, export, import, stats, prune |
 | `WorkspaceContext` | Wire config path, TM repo, lazy `TelemetryService` |
 
@@ -104,6 +106,7 @@ library/service use; users compile with `pdflatex` / `latexmk` after `pipeline b
 | `cli/ui.py` | Rich tables, panels, messages |
 | `services/workspace_context.py` | Dependency composition (TM + telemetry) |
 | `services/pipeline_service.py` | Pipeline orchestration |
+| `services/pdf_compile.py` | `PdfCompileService` (service-only TeX compile) |
 | `services/tm_service.py` | TM query/mutate operations |
 | `tm/segment_lookup.py` | Segment ID prefix resolution |
 | `lilt/exceptions.py` | Typed domain errors |
@@ -114,7 +117,7 @@ library/service use; users compile with `pdflatex` / `latexmk` after `pipeline b
 |-----------|--------------|
 | `ProjectNotInitializedError` | Message + exit 1 |
 | `SegmentNotFoundError` | Message + exit 1 |
-| `ValidationError` on build | Error panel + exit 1 |
+| `BuildError` (includes wrapped build validation) | Error panel + exit 1 |
 | User aborts editor | No TM change |
 | Corrupt namespace on search | Warning + suggestion to run `tm admin repair` |
 | `NamespaceBusyError` | Message + exit 1; retry when the other operation finishes |

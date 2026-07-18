@@ -7,7 +7,12 @@ from lilt.parser.placeholder_contract import normalize_llm_placeholders, validat
 
 
 class ValidationError(TranslationValidationError):
-    """Internal structural/lexical validation failure (domain error)."""
+    """Structural/lexical validation failure (placeholders, syntax, build map).
+
+    Subclass of :class:`TranslationValidationError` so CLI and service boundaries
+    that catch the parent also handle engine validation failures. Prefer raising
+    this type from validators; do not re-wrap as a bare parent.
+    """
 
     def __init__(self, message: str, *, attempt_text: str | None = None) -> None:
         super().__init__(message)

@@ -1,10 +1,7 @@
-"""High-level service for sync, translation, build, and PDF compilation."""
+"""High-level service for sync, translation, build, and review."""
 
 import os
-import shutil
-import subprocess
-from collections.abc import Callable, Iterable
-from typing import Any
+from collections.abc import Iterable
 
 from lilt.core.build import Builder, BuildResult
 from lilt.core.review_policy import ReviewPolicy
@@ -13,7 +10,6 @@ from lilt.core.translation.strategy_factory import create_reflection_strategy
 from lilt.exceptions import (
     BuildError,
     ConfigurationError,
-    TranslationValidationError,
 )
 from lilt.llm.factory import ProviderFactory
 from lilt.models.config import LiltConfig
@@ -26,13 +22,11 @@ from lilt.models.translation_mode import TranslationMode
 from lilt.models.translation_stage import TranslationStage
 from lilt.parser.ast_parser import LatexParser
 from lilt.parser.dependency_resolver import DependencyResolver
+from lilt.services.pdf_compile import PdfCompileService
 from lilt.services.workspace_context import WorkspaceContext
 from lilt.tm.segment_lookup import resolve_unique_segment
 from lilt.utils.namespace import derive_namespace, find_namespace_collisions
-from lilt.validation.validators import (
-    SegmentTranslationValidator,
-    ValidationError,
-)
+from lilt.validation.validators import SegmentTranslationValidator
 
 
 class SyncOrchestrator:
@@ -214,29 +208,9 @@ class TranslationOrchestrator:
             return "Done (already translated)"
         return "Done"
 
-    def _build_translator_pipeline(
-        self,
-        config: LiltConfig,
-        translation_mode: TranslationMode | None = None,
-    ) -> Any:
-        """Build a strategy-backed pipeline for tests that poke the private API."""
-        from lilt.core.translation.pipeline import TranslatorPipeline  # noqa: PLC0415
-
-        llm_config = config.to_llm_factory_dict(workspace_dir=self.ctx.workspace_dir)
-        llm = ProviderFactory.create(llm_config)
-        mode = translation_mode or TranslationMode.from_llm_config(llm_config)
-        return TranslatorPipeline(
-            self.ctx.repo,
-            llm,
-            config.llm.context_window,
-            translation_mode=mode,
-            telemetry=self.ctx.telemetry,
-            draft_empty_retries=config.llm.draft_empty_retries,
-        )
-
 
 class BuildOrchestrator:
-    """Reconstructs translated ``.tex`` output and optional PDF compilation."""
+    """Reconstructs translated ``.tex`` output from the Translation Memory."""
 
     def __init__(self, ctx: WorkspaceContext):
         self.ctx = ctx
@@ -269,116 +243,6 @@ class BuildOrchestrator:
             )
         except Exception as e:
             raise BuildError(f"Failed to build document: {e}") from e
-
-    def compile_pdf(self, main_file: str, output_dir: str) -> None:
-        """Compile ``main_file`` with pdflatex/bib tools (service-only helper)."""
-        abs_output_dir = self.ctx.resolve_under_workspace(output_dir)
-        abs_main = self.ctx.resolve_under_workspace(main_file)
-        env = self._build_latex_env()
-        base_name = os.path.splitext(os.path.basename(abs_main))[0]
-
-        def run_pdflatex() -> str:
-            return self._run_pdflatex(abs_output_dir, abs_main, env)
-
-        output = run_pdflatex()
-        if self._detect_and_run_bibliography(abs_output_dir, base_name, env):
-            output = run_pdflatex()
-        self._rerun_until_stable(output, run_pdflatex)
-
-    def _build_latex_env(self) -> dict[str, str]:
-        env = os.environ.copy()
-        sep = os.pathsep
-        workspace = os.path.abspath(self.ctx.workspace_dir)
-        for tex_bin in ("/Library/TeX/texbin",):
-            if os.path.isdir(tex_bin):
-                path = env.get("PATH", "")
-                if tex_bin not in path.split(sep):
-                    env["PATH"] = f"{tex_bin}{sep}{path}"
-        for var in ("TEXINPUTS", "BIBINPUTS", "BSTINPUTS"):
-            existing = env.get(var, "")
-            env[var] = f".{sep}{workspace}{sep}{existing}{sep}"
-        return env
-
-    def _resolve_tex_tool(self, name: str, env: dict[str, str]) -> str:
-        path = env.get("PATH", os.environ.get("PATH", ""))
-        found = shutil.which(name, path=path)
-        return found if found else name
-
-    def _run_pdflatex(
-        self, abs_output_dir: str, abs_main: str, env: dict[str, str]
-    ) -> str:
-        pdflatex = self._resolve_tex_tool("pdflatex", env)
-        try:
-            res = subprocess.run(
-                [pdflatex, "-interaction=nonstopmode", os.path.basename(abs_main)],
-                cwd=abs_output_dir,
-                env=env,
-                check=True,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-            )
-            return res.stdout
-        except subprocess.CalledProcessError as e:
-            raise BuildError(f"pdflatex failed:\n{e.output}") from e
-        except FileNotFoundError as exc:
-            raise BuildError(
-                "pdflatex not found. Please install TeX Live or MiKTeX."
-            ) from exc
-
-    def _run_bib_tool(
-        self, tool: str, base_name: str, abs_output_dir: str, env: dict[str, str]
-    ) -> None:
-        resolved = self._resolve_tex_tool(tool, env)
-        try:
-            subprocess.run(
-                [resolved, base_name],
-                cwd=abs_output_dir,
-                env=env,
-                check=True,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-            )
-        except subprocess.CalledProcessError as e:
-            raise BuildError(f"{tool} failed:\n{e.output}") from e
-        except FileNotFoundError as exc:
-            raise BuildError(f"{tool} not found.") from exc
-
-    def _detect_and_run_bibliography(
-        self, abs_output_dir: str, base_name: str, env: dict[str, str]
-    ) -> bool:
-        aux_file = os.path.join(abs_output_dir, f"{base_name}.aux")
-        bcf_file = os.path.join(abs_output_dir, f"{base_name}.bcf")
-        if os.path.exists(bcf_file):
-            self._run_bib_tool("biber", base_name, abs_output_dir, env)
-            return True
-        if os.path.exists(aux_file):
-            with open(aux_file, encoding="utf-8", errors="ignore") as f:
-                content = f.read()
-                if "\\bibdata" in content or "\\bibstyle" in content:
-                    self._run_bib_tool("bibtex", base_name, abs_output_dir, env)
-                    return True
-        return False
-
-    def _rerun_until_stable(
-        self, output: str, run_pdflatex: Callable[[], str], max_reruns: int = 2
-    ) -> str:
-        reruns = 0
-        stability_markers = (
-            "Rerun to get cross-references right",
-            "Rerun to get citations correct",
-            "Rerun to get pages right",
-            "Rerun to get index right",
-        )
-        while reruns < max_reruns and any(
-            marker in output for marker in stability_markers
-        ):
-            output = run_pdflatex()
-            reruns += 1
-        return output
 
 
 class ReviewManager:
@@ -416,12 +280,9 @@ class ReviewManager:
             segments = self.ctx.repo.load_namespace(namespace)
             seg = resolve_unique_segment(segments, segment_id, namespace)
             SegmentTransitionPolicy.validate_human_authoring(seg.status, new_status)
-            try:
-                new_translation = SegmentTranslationValidator.normalize_translation(
-                    seg.source_text, new_translation
-                )
-            except ValidationError as exc:
-                raise TranslationValidationError(str(exc)) from exc
+            new_translation = SegmentTranslationValidator.normalize_translation(
+                seg.source_text, new_translation
+            )
             if seg.translation and seg.translation != new_translation:
                 seg.archive_current_translation()
             seg.translation = new_translation
@@ -437,13 +298,7 @@ class ReviewManager:
     ) -> None:
         """Validate and save a human edit, defaulting to approved status."""
         seg = self.get_segment(namespace, segment_id)
-        try:
-            normalized = SegmentTranslationValidator.normalize_translation(
-                seg.source_text, new_translation
-            )
-        except ValidationError as exc:
-            raise TranslationValidationError(str(exc)) from exc
-        self.update_segment_translation(namespace, seg.id, normalized, new_status)
+        self.update_segment_translation(namespace, seg.id, new_translation, new_status)
 
 
 class PipelineService:
@@ -462,6 +317,7 @@ class PipelineService:
         self._sync = SyncOrchestrator(self.ctx)
         self._trans = TranslationOrchestrator(self.ctx)
         self._build = BuildOrchestrator(self.ctx)
+        self._pdf = PdfCompileService(self.ctx)
         self._review = ReviewManager(self.ctx)
 
     def sync_file(self, input_file: str) -> list[SyncResult]:
@@ -505,7 +361,7 @@ class PipelineService:
 
     def compile_pdf(self, main_file: str, output_dir: str) -> None:
         """Compile ``main_file`` with pdflatex/bib tools (service-only helper)."""
-        return self._build.compile_pdf(main_file, output_dir)
+        return self._pdf.compile_pdf(main_file, output_dir)
 
     def get_segments_to_review(self, namespace: str) -> list[StoredSegment]:
         """Return segments eligible for interactive review."""
@@ -541,10 +397,3 @@ class PipelineService:
 
     def _get_config(self) -> LiltConfig:
         return self.ctx.preconditions.load_config()
-
-    def _build_translator_pipeline(
-        self,
-        config: LiltConfig,
-        translation_mode: TranslationMode | None = None,
-    ) -> Any:
-        return self._trans._build_translator_pipeline(config, translation_mode)

@@ -1,4 +1,11 @@
-"""Allowed segment status transitions for human and CLI operations."""
+"""Allowed segment status transitions for human and CLI operations.
+
+Machine translation (workflow/sequential) does **not** use this matrix. It
+schedules via ``SegmentPolicy`` and writes ``seg.status`` directly. This module
+is the SSOT only for explicit user/import transitions (``tm set-status``,
+import, human edit/review). Mid-pipeline edges such as ``generated→drafted``
+are intentionally absent.
+"""
 
 from lilt.exceptions import InvalidTransitionError
 from lilt.models.segment import IMMUTABLE_STATUSES, SegmentStatus
@@ -12,21 +19,19 @@ _HUMAN_AUTHORING_TARGETS = frozenset(
     }
 )
 
+# Human/CLI/import only — no machine draft→critique→refine edges.
 _ALLOWED: dict[SegmentStatus, set[SegmentStatus]] = {
     SegmentStatus.GENERATED: {
         SegmentStatus.CONFLICT,
         SegmentStatus.ERROR,
-        SegmentStatus.DRAFTED,
         SegmentStatus.REFINED,
     },
     SegmentStatus.DRAFTED: {
-        SegmentStatus.CRITIQUED,
         SegmentStatus.CONFLICT,
         SegmentStatus.ERROR,
         SegmentStatus.GENERATED,
     },
     SegmentStatus.CRITIQUED: {
-        SegmentStatus.REFINED,
         SegmentStatus.CONFLICT,
         SegmentStatus.ERROR,
         SegmentStatus.GENERATED,

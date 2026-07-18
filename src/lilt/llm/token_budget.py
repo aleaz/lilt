@@ -92,10 +92,3 @@ def call_footprint(prompt_tokens: int, plan: BudgetPlan) -> tuple[int, int]:
     effective = ceil(max(0, prompt_tokens) * plan.fudge)
     total = effective + plan.chat_template_overhead + plan.reserved_output
     return effective, total
-
-
-class TokenBudgetPlanner:
-    """Deprecated alias; prefer :func:`plan_token_budget` / :func:`call_footprint`."""
-
-    plan = staticmethod(plan_token_budget)
-    call_footprint = staticmethod(call_footprint)

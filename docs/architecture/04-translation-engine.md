@@ -107,13 +107,13 @@ Token budgeting uses measured prompts plus reserved output via `plan_token_budge
 
 | Type | Layer | When raised | User impact |
 |------|-------|-------------|-------------|
-| `ValidationError` | `validation/validators.py` | Structural check fails inside engine or build | Segment → `conflict`; build aborts before write |
-| `TranslationValidationError` | `lilt/exceptions.py` | Human edit (`pipeline edit` / `review`) fails validation | CLI message; TM unchanged |
+| `ValidationError` | `validation/validators.py` | Structural check fails (engine, build map, human edit) | Segment → `conflict` in MT; CLI message for human edit (subclass of `TranslationValidationError`); build service wraps as `BuildError` |
+| `TranslationValidationError` | `lilt/exceptions.py` | Parent domain type for translation validation failures | CLI catches this (and subclasses) |
 | `PreconditionError` | `lilt/exceptions.py` | Invalid segment state before LLM call | Propagates to CLI (not `error` / `conflict`) |
-| `EmptyLLMOutputError` | `lilt/exceptions.py` (re-exported from `llm/output_gate.py`) | Provider returns empty text for non-trivial source | Fast-fail by default (`draft_empty_retries=1`); segment → `error` with detail in CLI progress (workflow and sequential); sequential continues the batch |
+| `EmptyLLMOutputError` | `lilt/exceptions.py` (re-exported via `core.translation.reflection_runtime` / `llm.output_gate`) | Provider returns empty text for non-trivial source | Fast-fail by default (`draft_empty_retries=1`); segment → `error` with detail in CLI progress (workflow and sequential); sequential continues the batch |
 
-`ValidationError` is an internal signal caught by strategies and build code.
-`TranslationValidationError` is the user-facing domain error for interactive edits.
+`ValidationError` is a `TranslationValidationError` specialization for structural/lexical checks.
+Do not re-wrap it as a bare `TranslationValidationError` (loses `attempt_text`).
 `PreconditionError` and `MultipleSegmentsFoundError` propagate without marking infrastructure errors.
 Do not catch or raise them interchangeably.
 
@@ -162,7 +162,7 @@ MQM tiers: L1 structural (validators), L2 terminology (lexical mask; validator d
 | Module / class | Responsibility |
 |----------------|----------------|
 | `core/translation/strategy_factory.py` | `create_reflection_strategy` — product compose root for mode → strategy |
-| `core/translation/pipeline.py` | `TranslatorPipeline` — test/legacy wrapper that delegates to the factory |
+| `core/translation/reflection_runtime.py` | Domain facade: stage helpers + budget preflight for strategies |
 | `core/translation/base_strategy.py` | `BaseReflectionStrategy`, `ReflectionStrategy` protocol |
 | `core/translation/workflow_strategy.py` | `WorkflowReflectionStrategy` (breadth-first scheduling + `_execute_*` stage methods) |
 | `core/translation/sequential_strategy.py` | `SequentialReflectionStrategy` |

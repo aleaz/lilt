@@ -10,10 +10,12 @@ from lilt.core.translation.progress_events import (
     progress_pass,
     progress_validation_fail,
 )
+from lilt.core.translation.reflection_runtime import (
+    EmptyLLMOutputError,
+    preflight_translation_budget,
+)
 from lilt.core.translation.segment_uow import process_segment
 from lilt.exceptions import MultipleSegmentsFoundError
-from lilt.llm.budget_preflight import preflight_translation_budget
-from lilt.llm.output_gate import EmptyLLMOutputError
 from lilt.llm.provider import LLMResponse
 from lilt.models.segment import ReflectionMeta
 from lilt.models.segment_policy import SegmentPolicy

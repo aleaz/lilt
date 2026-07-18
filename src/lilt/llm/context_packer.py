@@ -78,9 +78,3 @@ def pack_neighbor_context(
 
     parts.append("</context>")
     return "\n".join(parts), current_tokens, truncated
-
-
-class ContextPacker:
-    """Deprecated alias; prefer :func:`pack_neighbor_context`."""
-
-    pack = staticmethod(pack_neighbor_context)

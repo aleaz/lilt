@@ -15,7 +15,7 @@ There is no tagged release yet. Everything below is on `main` under
 - Public beta of the LILT localization engine (sync, translate, build, review, TM, telemetry), still unreleased.
 - Architecture L1 guides under `docs/architecture/`.
 - CI via `make ci` (ruff, mypy, pytest).
-- Provider-agnostic `plan_token_budget` / `pack_neighbor_context`, batch budget preflight, and config for `output_token_mode` / `tokenizer_fudge` / domain context caps (`TokenBudgetPlanner` / `ContextPacker` remain deprecated aliases).
+- Provider-agnostic `plan_token_budget` / `pack_neighbor_context`, batch budget preflight, and config for `output_token_mode` / `tokenizer_fudge` / domain context caps.
 - Translate preflight warns once when `project.domain_context` is empty (still optional).
 - `plan_budget` on the LLM provider port; progress event TypedDicts; linguistic eligibility in `parser.linguistic`.
 
@@ -29,8 +29,12 @@ There is no tagged release yet. Everything below is on `main` under
 - Domain errors no longer inherit Click; CLI adapts `LiltDomainError` at the edge.
 - Workspace path sandbox lives on `WorkspaceContext`; `PipelineService` is a typed composition root (no monkey-patch facade).
 - Removed dead `require_path_exists`; path sandbox SSOT is `WorkspaceContext.resolve_under_workspace`.
-- Translate selects reflection strategy via `create_reflection_strategy` (no dead TranslatorPipeline hop on the service path).
+- Translate selects reflection strategy via `create_reflection_strategy` (removed `TranslatorPipeline` wrapper).
 - Token budget/neighbor packing exposed as module functions; `EmptyLLMOutputError` / `ContextLengthExceededError` live in `exceptions.py`.
+- `SegmentTransitionPolicy` matrix is human/CLI/import only (no machine mid-pipeline edges).
+- Strategies import stage/budget helpers via `core.translation.reflection_runtime`.
+- PDF compile lives in `PdfCompileService` (not inside build orchestrator).
+- Human-edit validation raises `ValidationError` directly (no re-wrap that drops `attempt_text`).
 
 ### Fixed
 

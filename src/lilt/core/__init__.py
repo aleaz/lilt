@@ -5,7 +5,6 @@ from .sync import sync_file
 from .translation import (
     ContextResolver,
     SequentialReflectionStrategy,
-    TranslatorPipeline,
     WorkflowReflectionStrategy,
     create_reflection_strategy,
 )
@@ -15,7 +14,6 @@ __all__ = [
     "ContextResolver",
     "SequentialReflectionStrategy",
     "sync_file",
-    "TranslatorPipeline",
     "WorkflowReflectionStrategy",
     "create_reflection_strategy",
 ]

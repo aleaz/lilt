@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from lilt.core.translation import TranslatorPipeline
+from lilt.core.translation import create_reflection_strategy
 from lilt.llm.base_provider import BaseLLMProvider
 from lilt.llm.output_gate import EmptyLLMOutputError
 from lilt.llm.provider import LLMResponse
@@ -44,20 +44,21 @@ def mock_llm():
     return llm
 
 
-def test_translator_pipeline_empty_namespace(mock_tm, mock_llm):
+def test_reflection_strategy_empty_namespace(mock_tm, mock_llm):
     mock_tm.load_namespace.return_value = {}
-    pipeline = TranslatorPipeline(
-        tm=mock_tm,
-        llm=mock_llm,
-        telemetry=MagicMock(),
-        translation_mode=TranslationMode.WORKFLOW,
+    strategy = create_reflection_strategy(
+        TranslationMode.WORKFLOW,
+        mock_tm,
+        mock_llm,
+        3,
+        MagicMock(),
     )
 
-    events = list(pipeline.run_translation_iter("test_ns"))
+    events = list(strategy.run_iter("test_ns"))
     assert len(events) == 0
 
 
-def test_translator_pipeline_workflow_success(mock_tm, mock_llm):
+def test_reflection_strategy_workflow_success(mock_tm, mock_llm):
     seg1 = StoredSegment(
         id="1",
         source_hash="a",
@@ -67,17 +68,18 @@ def test_translator_pipeline_workflow_success(mock_tm, mock_llm):
     )
     mock_tm.load_namespace.return_value = {"1": seg1}
 
-    pipeline = TranslatorPipeline(
-        tm=mock_tm,
-        llm=mock_llm,
-        telemetry=MagicMock(),
-        translation_mode=TranslationMode.WORKFLOW,
+    strategy = create_reflection_strategy(
+        TranslationMode.WORKFLOW,
+        mock_tm,
+        mock_llm,
+        3,
+        MagicMock(),
     )
 
     with (
         patch(_VALIDATOR, side_effect=_identity_normalize),
     ):
-        list(pipeline.run_translation_iter("test_ns"))
+        list(strategy.run_iter("test_ns"))
 
         # 4 events per stage (start, sub_status, progress, done) * 3 stages = 12 events
         # Wait, if a stage is skipped (e.g. 0 to_process), it yields `start` and returns without `done`.
@@ -116,17 +118,18 @@ def test_workflow_empty_critique_bypasses_refine(mock_tm, mock_llm):
     mock_tm.load_namespace.return_value = {"title-seg": seg1}
     mock_llm.generate_critique.return_value = LLMResponse(text="")
 
-    pipeline = TranslatorPipeline(
-        tm=mock_tm,
-        llm=mock_llm,
-        telemetry=MagicMock(),
-        translation_mode=TranslationMode.WORKFLOW,
+    strategy = create_reflection_strategy(
+        TranslationMode.WORKFLOW,
+        mock_tm,
+        mock_llm,
+        3,
+        MagicMock(),
     )
 
     with (
         patch(_VALIDATOR, side_effect=_identity_normalize),
     ):
-        list(pipeline.run_translation_iter("test_ns"))
+        list(strategy.run_iter("test_ns"))
 
     assert seg1.status == SegmentStatus.REFINED
     assert seg1.translation == "Hola draft"
@@ -145,18 +148,19 @@ def test_workflow_empty_draft_sets_actionable_hint(mock_tm, mock_llm):
     )
     mock_tm.load_namespace.return_value = {"author-seg": seg1}
 
-    pipeline = TranslatorPipeline(
-        tm=mock_tm,
-        llm=mock_llm,
-        telemetry=MagicMock(),
-        translation_mode=TranslationMode.WORKFLOW,
+    strategy = create_reflection_strategy(
+        TranslationMode.WORKFLOW,
+        mock_tm,
+        mock_llm,
+        3,
+        MagicMock(),
     )
 
     with patch(
         "lilt.core.translation.workflow_strategy.run_draft",
         side_effect=EmptyLLMOutputError("draft"),
     ) as mock_draft:
-        events = list(pipeline.run_translation_iter("test_ns"))
+        events = list(strategy.run_iter("test_ns"))
 
     # Fast-fail: an empty draft is not retried by default (draft_empty_retries=1),
     # so a single generation is attempted instead of amplifying latency.
@@ -190,22 +194,23 @@ def test_workflow_resume_skips_refined_segment(mock_tm, mock_llm):
         "pending-1": pending,
     }
 
-    pipeline = TranslatorPipeline(
-        tm=mock_tm,
-        llm=mock_llm,
-        telemetry=MagicMock(),
-        translation_mode=TranslationMode.WORKFLOW,
+    strategy = create_reflection_strategy(
+        TranslationMode.WORKFLOW,
+        mock_tm,
+        mock_llm,
+        3,
+        MagicMock(),
     )
 
     with patch(_VALIDATOR, side_effect=_identity_normalize):
-        list(pipeline.run_translation_iter("test_ns", force=False))
+        list(strategy.run_iter("test_ns", force=False))
 
     mock_llm.generate_draft.assert_called_once()
     assert refined.translation == "Ya traducido"
     assert pending.status == SegmentStatus.REFINED
 
 
-def test_translator_pipeline_workflow_refine(mock_tm, mock_llm):
+def test_reflection_strategy_workflow_refine(mock_tm, mock_llm):
     seg1 = StoredSegment(
         id="1",
         source_hash="a",
@@ -220,17 +225,18 @@ def test_translator_pipeline_workflow_refine(mock_tm, mock_llm):
         text='{"requires_refine": true, "issues": [{"category": "other", "description": "Use refined text"}]}'
     )
 
-    pipeline = TranslatorPipeline(
-        tm=mock_tm,
-        llm=mock_llm,
-        telemetry=MagicMock(),
-        translation_mode=TranslationMode.WORKFLOW,
+    strategy = create_reflection_strategy(
+        TranslationMode.WORKFLOW,
+        mock_tm,
+        mock_llm,
+        3,
+        MagicMock(),
     )
 
     with (
         patch(_VALIDATOR, side_effect=_identity_normalize),
     ):
-        list(pipeline.run_translation_iter("test_ns"))
+        list(strategy.run_iter("test_ns"))
 
         assert seg1.status == SegmentStatus.REFINED
         assert seg1.translation == "Hola refined"
@@ -245,7 +251,7 @@ def test_translator_pipeline_workflow_refine(mock_tm, mock_llm):
         )
 
 
-def test_translator_pipeline_validation_failure(mock_tm, mock_llm):
+def test_reflection_strategy_validation_failure(mock_tm, mock_llm):
     seg1 = StoredSegment(
         id="1",
         source_hash="a",
@@ -259,18 +265,19 @@ def test_translator_pipeline_validation_failure(mock_tm, mock_llm):
         text='{"requires_refine": true, "issues": [{"category": "other", "description": "fix it"}]}'
     )
 
-    pipeline = TranslatorPipeline(
-        tm=mock_tm,
-        llm=mock_llm,
-        telemetry=MagicMock(),
-        translation_mode=TranslationMode.WORKFLOW,
+    strategy = create_reflection_strategy(
+        TranslationMode.WORKFLOW,
+        mock_tm,
+        mock_llm,
+        3,
+        MagicMock(),
     )
 
     def fail_all_translations(_source: str, _translated: str) -> str:
         raise ValidationError("Missing placeholder")
 
     with patch(_VALIDATOR, side_effect=fail_all_translations):
-        events = list(pipeline.run_translation_iter("test_ns"))
+        events = list(strategy.run_iter("test_ns"))
 
         # The validation happens in the REFINE stage.
         # Find the failure event
@@ -282,7 +289,7 @@ def test_translator_pipeline_validation_failure(mock_tm, mock_llm):
         assert seg1.translation == "Hola refined"
 
 
-def test_translator_pipeline_with_context(mock_tm, mock_llm):
+def test_reflection_strategy_with_context(mock_tm, mock_llm):
     seg1 = StoredSegment(
         id="1",
         source_hash="a",
@@ -301,12 +308,12 @@ def test_translator_pipeline_with_context(mock_tm, mock_llm):
     )
     mock_tm.load_namespace.return_value = {"1": seg1, "2": seg2}
 
-    pipeline = TranslatorPipeline(
-        tm=mock_tm,
-        llm=mock_llm,
-        telemetry=MagicMock(),
-        context_window=1,
-        translation_mode=TranslationMode.WORKFLOW,
+    strategy = create_reflection_strategy(
+        TranslationMode.WORKFLOW,
+        mock_tm,
+        mock_llm,
+        1,
+        MagicMock(),
     )
 
     with (
@@ -319,7 +326,7 @@ def test_translator_pipeline_with_context(mock_tm, mock_llm):
             ),
         ),
     ):
-        list(pipeline.run_translation_iter("test_ns"))
+        list(strategy.run_iter("test_ns"))
 
         # In draft phase, it uses the previous refined for context
         mock_llm.generate_draft.assert_called_once_with(
@@ -344,17 +351,18 @@ def test_workflow_force_skips_locked_segment(mock_tm, mock_llm):
     )
     mock_tm.load_namespace.return_value = {"locked-1": locked}
 
-    pipeline = TranslatorPipeline(
-        tm=mock_tm,
-        llm=mock_llm,
-        telemetry=MagicMock(),
-        translation_mode=TranslationMode.WORKFLOW,
+    strategy = create_reflection_strategy(
+        TranslationMode.WORKFLOW,
+        mock_tm,
+        mock_llm,
+        3,
+        MagicMock(),
     )
 
     with (
         patch(_VALIDATOR, side_effect=_identity_normalize),
     ):
-        events = list(pipeline.run_translation_iter("test_ns", force=True))
+        events = list(strategy.run_iter("test_ns", force=True))
 
     mock_llm.generate_draft.assert_not_called()
     assert locked.status == SegmentStatus.LOCKED
@@ -373,14 +381,15 @@ def test_workflow_force_skips_deprecated_segment(mock_tm, mock_llm):
     )
     mock_tm.load_namespace.return_value = {"dep-1": deprecated}
 
-    pipeline = TranslatorPipeline(
-        tm=mock_tm,
-        llm=mock_llm,
-        telemetry=MagicMock(),
-        translation_mode=TranslationMode.WORKFLOW,
+    strategy = create_reflection_strategy(
+        TranslationMode.WORKFLOW,
+        mock_tm,
+        mock_llm,
+        3,
+        MagicMock(),
     )
 
-    list(pipeline.run_translation_iter("test_ns", force=True))
+    list(strategy.run_iter("test_ns", force=True))
 
     mock_llm.generate_draft.assert_not_called()
     assert deprecated.status == SegmentStatus.DEPRECATED
@@ -396,23 +405,24 @@ def test_workflow_force_reprocesses_approved_segment(mock_tm, mock_llm):
     )
     mock_tm.load_namespace.return_value = {"approved-1": approved}
 
-    pipeline = TranslatorPipeline(
-        tm=mock_tm,
-        llm=mock_llm,
-        telemetry=MagicMock(),
-        translation_mode=TranslationMode.WORKFLOW,
+    strategy = create_reflection_strategy(
+        TranslationMode.WORKFLOW,
+        mock_tm,
+        mock_llm,
+        3,
+        MagicMock(),
     )
 
     with (
         patch(_VALIDATOR, side_effect=_identity_normalize),
     ):
-        list(pipeline.run_translation_iter("test_ns", force=True))
+        list(strategy.run_iter("test_ns", force=True))
 
     mock_llm.generate_draft.assert_called_once()
     assert approved.status == SegmentStatus.REFINED
 
 
-def test_translator_pipeline_dynamic_context(mock_tm, mock_llm):
+def test_reflection_strategy_dynamic_context(mock_tm, mock_llm):
     seg1 = StoredSegment(
         id="1",
         source_hash="a",
@@ -432,12 +442,12 @@ def test_translator_pipeline_dynamic_context(mock_tm, mock_llm):
     mock_tm.load_namespace.return_value = {"1": seg1, "2": seg2}
 
     # Use dict to configure dynamic context windows
-    pipeline = TranslatorPipeline(
-        tm=mock_tm,
-        llm=mock_llm,
-        telemetry=MagicMock(),
-        context_window={"draft": 1, "critique": 0, "refine": 1},
-        translation_mode=TranslationMode.WORKFLOW,
+    strategy = create_reflection_strategy(
+        TranslationMode.WORKFLOW,
+        mock_tm,
+        mock_llm,
+        {"draft": 1, "critique": 0, "refine": 1},
+        MagicMock(),
     )
 
     with (
@@ -450,7 +460,7 @@ def test_translator_pipeline_dynamic_context(mock_tm, mock_llm):
             ),
         ),
     ):
-        list(pipeline.run_translation_iter("test_ns"))
+        list(strategy.run_iter("test_ns"))
 
         # Draft uses the previous refined for context (window = 1)
         mock_llm.generate_draft.assert_called_once_with(
@@ -524,7 +534,7 @@ class _SequentialSuccessLLM(_RetryFakeLLM):
         return LLMResponse(text='{"requires_refine": false, "issues": []}')
 
 
-def test_translator_pipeline_sequential_success(mock_tm):
+def test_reflection_strategy_sequential_success(mock_tm):
     seg1 = StoredSegment(
         id="1",
         source_hash="a",
@@ -535,15 +545,16 @@ def test_translator_pipeline_sequential_success(mock_tm):
     mock_tm.load_namespace.return_value = {"1": seg1}
     fake_llm = _SequentialSuccessLLM()
 
-    pipeline = TranslatorPipeline(
-        tm=mock_tm,
-        llm=fake_llm,
-        telemetry=MagicMock(),
-        translation_mode=TranslationMode.SEQUENTIAL,
+    strategy = create_reflection_strategy(
+        TranslationMode.SEQUENTIAL,
+        mock_tm,
+        fake_llm,
+        3,
+        MagicMock(),
     )
 
     with patch(_VALIDATOR, side_effect=_identity_normalize):
-        events = list(pipeline.run_translation_iter("test_ns"))
+        events = list(strategy.run_iter("test_ns"))
 
     assert seg1.status == SegmentStatus.REFINED
     assert seg1.translation == "Hola draft"
@@ -562,17 +573,18 @@ def test_refine_validation_retries_are_consistent_across_modes(mock_tm, mode):
     mock_tm.load_namespace.return_value = {"1": seg1}
     fake_llm = _RetryFakeLLM()
 
-    pipeline = TranslatorPipeline(
-        tm=mock_tm,
-        llm=fake_llm,
-        telemetry=MagicMock(),
-        translation_mode=mode,
+    strategy = create_reflection_strategy(
+        mode,
+        mock_tm,
+        fake_llm,
+        3,
+        MagicMock(),
     )
 
     validator_target = _VALIDATOR
 
     with patch(validator_target, side_effect=_normalize_side_effect):
-        list(pipeline.run_translation_iter("test_ns"))
+        list(strategy.run_iter("test_ns"))
 
     assert seg1.status == SegmentStatus.REFINED
     assert seg1.translation == "Hola refined"
@@ -590,14 +602,15 @@ def test_workflow_refine_force_skips_generated_without_artifacts(mock_tm, mock_l
     )
     mock_tm.load_namespace.return_value = {"1": seg1}
 
-    pipeline = TranslatorPipeline(
-        tm=mock_tm,
-        llm=mock_llm,
-        telemetry=MagicMock(),
-        translation_mode=TranslationMode.WORKFLOW,
+    strategy = create_reflection_strategy(
+        TranslationMode.WORKFLOW,
+        mock_tm,
+        mock_llm,
+        3,
+        MagicMock(),
     )
 
-    events = list(pipeline.run_translation_iter("test_ns", force=True, stage="refine"))
+    events = list(strategy.run_iter("test_ns", force=True, stage="refine"))
 
     start_events = [e for e in events if e.get("type") == "start"]
     assert len(start_events) == 1
@@ -618,14 +631,15 @@ def test_workflow_critique_garbage_marks_conflict_without_refine(mock_tm, mock_l
     mock_tm.load_namespace.return_value = {"1": seg1}
     mock_llm.generate_critique.return_value = LLMResponse(text="prose without json")
 
-    pipeline = TranslatorPipeline(
-        tm=mock_tm,
-        llm=mock_llm,
-        telemetry=MagicMock(),
-        translation_mode=TranslationMode.WORKFLOW,
+    strategy = create_reflection_strategy(
+        TranslationMode.WORKFLOW,
+        mock_tm,
+        mock_llm,
+        3,
+        MagicMock(),
     )
 
-    list(pipeline.run_translation_iter("test_ns", stage="critique"))
+    list(strategy.run_iter("test_ns", stage="critique"))
 
     assert seg1.status == SegmentStatus.CONFLICT
     mock_llm.generate_refine.assert_not_called()

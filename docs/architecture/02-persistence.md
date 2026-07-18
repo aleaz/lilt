@@ -135,17 +135,18 @@ This ensures durability and interrupt handling during crashes.
 
 ### Segment status transitions
 
-`SegmentTransitionPolicy` defines allowed CLI/import transitions. Human paths:
-`refined → reviewed → approved`; `DEPRECATED` only via sync; reset to `generated`
-requires `--force`. Enforced in `TMService.update_segment_status` and TM import.
-Import rows that change translation text must pass `SegmentTranslationValidator`
-(placeholder multiset / syntax); failing rows are skipped.
+`SegmentTransitionPolicy` is the SSOT for **human/CLI/import** status changes only.
+Human paths: `refined → reviewed → approved`; `DEPRECATED` only via sync; reset to
+`generated` requires `--force`. Enforced in `TMService.update_segment_status` and
+TM import. Import rows that change translation text must pass
+`SegmentTranslationValidator` (placeholder multiset / syntax); failing rows are skipped.
 
 Machine translation (workflow/sequential) does **not** call `SegmentTransitionPolicy`.
-Stage scheduling and overwrite rules live only in `SegmentPolicy`
-(`is_eligible_for_workflow_stage` / `is_eligible_for_sequential`); strategies set
-`seg.status` directly after LLM work. Do not expect `tm set-status` legality to
-match what `pipeline translate` will pick.
+The transition matrix intentionally omits mid-pipeline edges (`generated→drafted`,
+`drafted→critiqued`, `critiqued→refined`). Stage scheduling and overwrite rules live
+only in `SegmentPolicy` (`is_eligible_for_workflow_stage` / `is_eligible_for_sequential`);
+strategies set `seg.status` directly after LLM work. Do not expect `tm set-status`
+legality to match what `pipeline translate` will pick.
 
 ## Decisions
 
@@ -188,7 +189,7 @@ match what `pipeline translate` will pick.
 | Corrupt JSONL line | `TMCorruptionError` on strict load | `lilt tm admin repair` (file-exists check only, then skips bad lines and backs up) |
 | Concurrent namespace mutation | `NamespaceBusyError` | Wait for the other operation; do not run sync and translate in parallel on the same namespace |
 | Lock contention | `TMConcurrencyError` after retries | Re-run command |
-| Illegal status transition | `ValidationError` / domain error | Use allowed transition or `--force` |
+| Illegal status transition | `InvalidTransitionError` | Use allowed transition or `--force` |
 
 ## Concurrency invariant
 

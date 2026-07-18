@@ -204,8 +204,8 @@ When code and prose disagree, **code wins**; update documentation to match.
 | **Responsibility** | Selects strategy, resolves context, validates, persists via checkpoint |
 | **Relationships** | `create_reflection_strategy` selects a `ReflectionStrategy` implementation |
 | **Code example** | `core/translation/` |
-| **Alternative names** | "translate module"; `TranslatorPipeline` (legacy/test wrapper) |
-| **Recommendation** | **Keep** as architectural name; document factory vs wrapper |
+| **Alternative names** | "translate module" |
+| **Recommendation** | **Keep** as architectural name; compose via `create_reflection_strategy` |
 
 ### Pipeline Service
 
