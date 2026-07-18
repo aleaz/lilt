@@ -21,6 +21,7 @@ project:
   source_lang: English
   target_lang: Spanish
   domain_context: ''        # Injected into LLM prompts for domain context
+  domain_context_max_tokens: 512  # Cap for domain_context (warn + truncate)
   injections: []            # LaTeX preamble lines injected at build time
 
 review:
@@ -37,8 +38,12 @@ llm:
   base_url: http://localhost:1234/v1
   temperature: 0.3          # Draft phase creativity
   reflection_temperature: 0.0   # Critique and Refine (deterministic)
-  max_tokens: 8192
+  max_tokens: 4096          # Must be < model_context_limit
   model_context_limit: 8192
+  output_token_mode: shared_budget  # or split_budget (+ reasoning_reserve)
+  reasoning_reserve: 0
+  tokenizer_fudge: 1.1
+  chat_template_overhead: 48
   timeout: 600.0
   draft_empty_retries: 1   # Fast-fail on empty draft output (increase to retry)
   context_window: 3         # Neighbor segments for context (int or per-stage dict)

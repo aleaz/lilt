@@ -15,15 +15,19 @@ There is no tagged release yet. Everything below is on `main` under
 - Public beta of the LILT localization engine (sync, translate, build, review, TM, telemetry), still unreleased.
 - Architecture L1 guides under `docs/architecture/`.
 - CI via `make ci` (ruff, mypy, pytest).
+- Provider-agnostic `TokenBudgetPlanner`, measured-prompt `ContextPacker`, batch budget preflight, and config for `output_token_mode` / `tokenizer_fudge` / domain context caps.
 
 ### Changed
 
 - Evaluation corpus tooling and harnesses live outside this repository.
 - CLI consolidated (`project configure --dry-run`, `tm list`/`status`/`admin`).
 - Pre-test checklist in troubleshooting; L1 persistence documents that machine translate uses `SegmentPolicy` only (not `SegmentTransitionPolicy`).
+- Default `llm.max_tokens` is `4096` so new workspaces keep headroom under `model_context_limit` (`8192`).
 
 ### Fixed
 
+- Context budgeting now reserves completion tokens and chat overhead before packing neighbors (replacing the fixed 600-token heuristic).
+- Empty LLM `content` with non-zero completion tokens raises `OutputTokenStarvationError` instead of blind retry.
 - TM repair no longer blocked by strict load of corrupt namespaces; workspace path checks reject sibling-prefix escapes; namespace encoding collisions fail loudly at sync.
 - Sequential runs keep successful segment writes when later segments hit empty LLM output or soft telemetry failures; import and build treat placeholder map drift correctly.
 - Aggregate TM status/list soft-skip corrupt namespaces with repair hints; human edit writes validate like submit; checkpoint appends fsync; partial sync reports namespaces already written.

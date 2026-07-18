@@ -12,6 +12,7 @@ from lilt.core.translation.progress_events import (
 )
 from lilt.core.translation.segment_uow import process_segment
 from lilt.exceptions import MultipleSegmentsFoundError
+from lilt.llm.budget_preflight import preflight_translation_budget
 from lilt.llm.output_gate import EmptyLLMOutputError
 from lilt.llm.provider import LLMResponse
 from lilt.models.segment import ReflectionMeta
@@ -62,6 +63,14 @@ class SequentialReflectionStrategy(BaseReflectionStrategy):
 
         if not to_translate:
             return
+
+        preflight_translation_budget(
+            self.llm,
+            source_texts=[s.source_text for s in to_translate],
+            stages=["draft", "critique", "refine"]
+            if self.llm.reflection_enabled
+            else ["draft"],
+        )
 
         segment_to_idx = {s.id: idx for idx, s in enumerate(active_segments)}
 

@@ -93,7 +93,8 @@ Priority for neighbor text: **`translation` > `refined` > `draft`**.
 | Workflow critique/refine | Bidirectional (past + future drafts) |
 | Sequential | `resolve_for_refine()`: backward-priority; **forward applies only when future segments already have translations** (typical on `--force` re-runs) |
 
-Token budgeting uses `tiktoken` against `model_context_limit` minus `max_tokens` (see [05-llm-layer](05-llm-layer.md)).
+Token budgeting uses measured prompts plus reserved output via `TokenBudgetPlanner`
+(see [05-llm-layer](05-llm-layer.md)).
 
 ### Validation (MVP)
 

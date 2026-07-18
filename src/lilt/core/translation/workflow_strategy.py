@@ -12,6 +12,7 @@ from lilt.core.translation.progress_events import (
 )
 from lilt.core.translation.segment_uow import process_segment
 from lilt.exceptions import MultipleSegmentsFoundError, PreconditionError
+from lilt.llm.budget_preflight import preflight_translation_budget
 from lilt.llm.output_gate import EmptyLLMOutputError
 from lilt.llm.provider import LLMResponse
 from lilt.llm.reflection_pass import (
@@ -54,6 +55,27 @@ class WorkflowReflectionStrategy(BaseReflectionStrategy):
     ) -> Iterable[dict]:
         """Execute the translation pipeline iteratively."""
         stages_to_run = ["draft", "critique", "refine"] if not stage else [stage]
+
+        segments = self.tm.load_namespace(namespace)
+        if segments:
+            if segment_id:
+                resolved = resolve_unique_segment(segments, segment_id, namespace)
+                eligible_sources = [resolved.source_text]
+            else:
+                eligible_sources = [
+                    s.source_text
+                    for s in segments.values()
+                    if any(
+                        SegmentPolicy.is_eligible_for_workflow_stage(s, st, force)
+                        for st in stages_to_run
+                    )
+                ]
+            if eligible_sources:
+                preflight_translation_budget(
+                    self.llm,
+                    source_texts=eligible_sources,
+                    stages=stages_to_run,
+                )
 
         for current_stage in stages_to_run:
             yield from self._run_stage(

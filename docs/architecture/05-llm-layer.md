@@ -8,6 +8,9 @@ modules:
   - src/lilt/llm/openai_provider.py
   - src/lilt/llm/router_provider.py
   - src/lilt/llm/factory.py
+  - src/lilt/llm/token_budget.py
+  - src/lilt/llm/context_packer.py
+  - src/lilt/llm/budget_preflight.py
 ---
 
 # LLM Layer
@@ -24,6 +27,9 @@ for telemetry.
 - Secrets from environment; `api_key` in yaml for local-only setups.
 - Retries on transient failures (5xx, rate limit); not on 4xx auth errors.
 - `model_context_limit` and `max_tokens` are separate concerns.
+- Token budgeting is provider-agnostic (OpenAI-compatible endpoints only; no vendor lock).
+- Never call the API when fudged prompt + chat overhead + reserved output exceeds
+  `model_context_limit`.
 
 ## Configuration
 
@@ -33,13 +39,18 @@ for telemetry.
 | `llm.model` | `local-model` | Base model |
 | `llm.base_url` | `http://localhost:1234/v1` | API endpoint |
 | `llm.draft_model` / `critique_model` / `refine_model` | `""` | Fallback to `model` |
-| `llm.stages` | (optional) | Per-stage `{provider, model, base_url, ...}` |
+| `llm.stages` | (optional) | Per-stage `{provider, model, base_url, model_context_limit, ...}` |
 | `llm.reflection_enabled` | `true` | Enable D→C→R in provider |
 | `llm.timeout` | `600.0` | Request timeout |
 | `llm.draft_empty_retries` | `1` | Draft attempts on empty LLM output before segment `error` |
 | `llm.retry.max_attempts` | `3` | Tenacity attempts |
-| `llm.model_context_limit` | `8192` | Input budget for context resolver |
-| `llm.max_tokens` | `8192` | Output token cap |
+| `llm.model_context_limit` | `8192` | Physical context window for budgeting |
+| `llm.max_tokens` | `4096` | Completion cap (`max_tokens` request field) |
+| `llm.output_token_mode` | `shared_budget` | `shared_budget` or `split_budget` |
+| `llm.reasoning_reserve` | `0` | Extra reservation when `split_budget` |
+| `llm.tokenizer_fudge` | `1.1` | Multiplier on measured prompt tokens |
+| `llm.chat_template_overhead` | `48` | Chat-template / role overhead tokens |
+| `project.domain_context_max_tokens` | `512` | Cap for injected domain context |
 
 ## Data flow
 
@@ -101,8 +112,35 @@ Configurable via `llm.retry.max_attempts`. Exhausted retries surface as segment 
 
 ### Context budgeting
 
-`tiktoken` estimates prompt size. `ContextResolver` alternates truncation when
-context exceeds `model_context_limit - max_tokens`.
+`TokenBudgetPlanner` is the numeric SSOT (no I/O, no `base_url`). Per call:
+
+```text
+reserved_output = max_tokens                         # shared_budget
+                | max_tokens + reasoning_reserve     # split_budget
+
+neighbor_budget = context_limit
+  - reserved_output
+  - ceil(fixed_prompt_tokens * tokenizer_fudge)
+  - chat_template_overhead
+  - safety_margin   # max(64, floor(0.02 * context_limit))
+```
+
+`fixed_prompt_tokens` is measured via `PromptManager.measure` (system with empty
+neighbor block + stage user template). `ContextPacker` fills
+`neighbor_budget` with backward-first alternation. Call gate in `_call_llm`:
+
+```text
+ceil(sum(count(messages)) * fudge) + overhead + reserved_output
+  <= model_context_limit
+```
+
+Batch preflight (`budget_preflight`) runs before the segment loop: for each
+stage provider (router-aware), plan against the largest eligible source; abort
+with `BudgetPreflightError` if infeasible.
+
+**OpenAI-compatible / per-stage profiles:** `llm.stages.*` merges the same
+budget fields as top-level `llm` (`model_context_limit`, `max_tokens`,
+`output_token_mode`, …). Local + remote mix ⇒ distinct plans per stage.
 
 ## Decisions
 
@@ -111,15 +149,19 @@ context exceeds `model_context_limit - max_tokens`.
 | Custom protocol | Minimal deps, full control | LangChain chains |
 | Router for `llm.stages` | Hybrid GPU/cloud without pipeline changes | Multiple CLI invocations |
 | Tenacity retries | Battle-tested backoff | Manual retry loops |
-| Separate context vs output limits | Accurate RAG budgeting | Single token field |
-| OpenAI-compatible first | LM Studio, Ollama, OpenRouter | Provider-specific SDKs only |
+| Agnostic planner + packer | Accurate headroom; no vendor strings | Heuristic 600-token system estimate |
+| Separate context vs output limits | Reserve completion against n_ctx | Single token field |
+| OpenAI-compatible first | Any OpenAI-compatible serving stack | Provider-specific SDKs only |
 
 ## Implementation map
 
 | Module / class | Responsibility |
 |----------------|----------------|
 | `llm/provider.py` | `LLMProvider` protocol, `LLMResponse`, `stage_model_name` |
-| `llm/openai_provider.py` | OpenAI-compatible client |
+| `llm/openai_provider.py` | OpenAI-compatible client, call gate, starvation check |
+| `llm/token_budget.py` | `TokenBudgetPlanner` / `BudgetPlan` |
+| `llm/context_packer.py` | Neighbor packing under `neighbor_budget` |
+| `llm/budget_preflight.py` | Batch infeasibility abort |
 | `llm/router_provider.py` | Stage delegation and per-stage model resolution |
 | `llm/factory.py` | `ProviderFactory.create` |
 | `llm/base_provider.py` | `stage_model_name` default, `translate_segment_iter` adapter |
@@ -134,7 +176,10 @@ context exceeds `model_context_limit - max_tokens`.
 | ReadTimeout | `error` status | Increase `timeout` |
 | RateLimitError | Retry then `error` | Backoff / different provider |
 | 401 / auth | No retry, `error` | Fix API key |
-| Context overflow | Truncated neighbors | Reduce `context_window` |
+| Neighbors over budget | Truncated neighbors (warning) | Reduce `context_window` or raise limit |
+| Prompt + reserved > limit | `ContextLengthExceededError` (no API call) | Lower `max_tokens` / raise `model_context_limit` |
+| Empty content + completion_tokens > 0 | `OutputTokenStarvationError` (no blind retry) | Raise `max_tokens` or `split_budget` + `reasoning_reserve` |
+| Preflight infeasible | `BudgetPreflightError` aborts batch | Same as reserved-headroom fixes |
 
 ## Known gaps
 
