@@ -20,11 +20,13 @@ from tenacity import (
     wait_exponential,
 )
 
-from lilt.exceptions import ConfigurationError
+from lilt.exceptions import ConfigurationError, OutputTokenStarvationError
 from lilt.llm.base_provider import BaseLLMProvider
+from lilt.llm.context_packer import ContextPacker
 from lilt.llm.output_gate import validate_llm_output
 from lilt.llm.prompt_manager import PromptManager
 from lilt.llm.provider import ContextData, LLMResponse
+from lilt.llm.token_budget import BudgetPlan, OutputTokenMode, TokenBudgetPlanner
 from lilt.utils.text_utils import has_linguistic_content
 from lilt.utils.token_utils import count_tokens
 
@@ -54,6 +56,26 @@ class ContextLengthExceededError(ValueError):
     """Raised when input tokens exceed the model's physical context limit."""
 
     pass
+
+
+def _truncate_to_token_cap(text: str, max_tokens: int) -> tuple[str, bool]:
+    """Truncate ``text`` so ``count_tokens`` stays at or under ``max_tokens``."""
+    if max_tokens <= 0 or not text:
+        return "", bool(text)
+    if count_tokens(text) <= max_tokens:
+        return text, False
+    # Binary search on character length; tiktoken is monotonic with prefix length.
+    lo, hi = 0, len(text)
+    best = ""
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        candidate = text[:mid]
+        if count_tokens(candidate) <= max_tokens:
+            best = candidate
+            lo = mid + 1
+        else:
+            hi = mid - 1
+    return best.rstrip(), True
 
 
 class OpenAIProvider(BaseLLMProvider):
@@ -93,6 +115,11 @@ class OpenAIProvider(BaseLLMProvider):
         domain_context: str | None = None,
         model_context_limit: int = 8192,
         timeout: float = 600.0,
+        output_token_mode: str = OutputTokenMode.SHARED_BUDGET.value,
+        reasoning_reserve: int = 0,
+        tokenizer_fudge: float = 1.1,
+        chat_template_overhead: int = 48,
+        domain_context_max_tokens: int = 512,
     ):
         _api_key = api_key if api_key is not None else os.getenv("OPENAI_API_KEY")
         self.base_url: str = (
@@ -132,6 +159,11 @@ class OpenAIProvider(BaseLLMProvider):
         self._reflection_enabled: bool = reflection_enabled
         self.model_context_limit: int = model_context_limit
         self.timeout: float = timeout
+        self.output_token_mode = OutputTokenMode(output_token_mode)
+        self.reasoning_reserve = max(0, int(reasoning_reserve))
+        self.tokenizer_fudge = max(1.0, float(tokenizer_fudge))
+        self.chat_template_overhead = max(0, int(chat_template_overhead))
+        self.domain_context_max_tokens = max(0, int(domain_context_max_tokens))
 
         self.client = OpenAI(
             api_key=self.api_key, base_url=self.base_url, timeout=self.timeout
@@ -145,7 +177,22 @@ class OpenAIProvider(BaseLLMProvider):
         # Store context variables for rendering
         self.source_lang = source_lang
         self.target_lang = target_lang
-        self.domain_context = domain_context
+        self.domain_truncated = False
+        self.domain_context = self._cap_domain_context(domain_context)
+
+    def _cap_domain_context(self, domain_context: str | None) -> str | None:
+        if not domain_context:
+            return domain_context
+        capped, truncated = _truncate_to_token_cap(
+            domain_context, self.domain_context_max_tokens
+        )
+        if truncated:
+            self.domain_truncated = True
+            logger.warning(
+                "domain_context truncated to %s tokens (project.domain_context_max_tokens)",
+                self.domain_context_max_tokens,
+            )
+        return capped or None
 
     def _render_system_prompt(self, context_block: str) -> str:
         """Build the system message for a reflection stage."""
@@ -157,14 +204,79 @@ class OpenAIProvider(BaseLLMProvider):
             context_block=context_block,
         )
 
+    def _measure_fixed_prompt_tokens(
+        self,
+        *,
+        stage: str,
+        source_text: str,
+        draft_text: str = "",
+        critique_text: str = "",
+    ) -> int:
+        """Count system + user templates with an empty neighbor block."""
+        system_tokens = self.prompt_manager.measure(
+            "system",
+            source_lang=self.source_lang,
+            target_lang=self.target_lang,
+            domain_context=self.domain_context,
+            context_block="",
+        )
+        if stage == "draft":
+            user_tokens = self.prompt_manager.measure("draft", text=source_text)
+        elif stage == "critique":
+            user_tokens = self.prompt_manager.measure(
+                "critique", text=source_text, draft=draft_text
+            )
+        elif stage == "refine":
+            user_tokens = self.prompt_manager.measure(
+                "refine",
+                text=source_text,
+                draft=draft_text,
+                critique=critique_text,
+            )
+        else:
+            user_tokens = self.prompt_manager.measure("draft", text=source_text)
+        return system_tokens + user_tokens
+
+    def plan_budget(
+        self,
+        *,
+        stage: str,
+        source_text: str,
+        draft_text: str = "",
+        critique_text: str = "",
+    ) -> BudgetPlan:
+        """Compute a :class:`BudgetPlan` for a stage without packing neighbors."""
+        fixed = self._measure_fixed_prompt_tokens(
+            stage=stage,
+            source_text=source_text,
+            draft_text=draft_text,
+            critique_text=critique_text,
+        )
+        return TokenBudgetPlanner.plan(
+            context_limit=self.model_context_limit,
+            max_tokens=self.max_tokens if self.max_tokens is not None else 0,
+            fixed_prompt_tokens=fixed,
+            output_token_mode=self.output_token_mode,
+            reasoning_reserve=self.reasoning_reserve,
+            tokenizer_fudge=self.tokenizer_fudge,
+            chat_template_overhead=self.chat_template_overhead,
+            domain_truncated=self.domain_truncated,
+        )
+
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
 
     def _build_context_block(
-        self, context: ContextData | None, target_text: str = ""
+        self,
+        context: ContextData | None,
+        target_text: str = "",
+        *,
+        stage: str = "draft",
+        draft_text: str = "",
+        critique_text: str = "",
     ) -> str:
-        """Return the XML-fenced context block string, truncated using Dynamic Token Accounting."""
+        """Return the XML-fenced context block, packed under the measured budget."""
         if not context:
             return ""
 
@@ -178,112 +290,74 @@ class OpenAIProvider(BaseLLMProvider):
 
         if not backward and not forward:
             return ""
-        # DYNAMIC TOKEN ACCOUNTING with tiktoken
-        # 1. Total physical capacity in tokens
-        max_total_tokens = self.model_context_limit
 
-        # 2. Estimate System Prompt + critique overhead (approx 600 tokens)
-        system_tokens = 600
-
-        # 3. Target segment size in tokens
-        target_tokens = count_tokens(target_text)
-
-        # 4. Expected Output (Translate + Refine margins) ~ 1.5x target size
-        expected_output_tokens = int(target_tokens * 1.5)
-
-        # 5. Safety Margin (10% of total capacity)
-        safety_margin_tokens = int(max_total_tokens * 0.10)
-
-        # Calculate available budget for historical context
-        available_budget_tokens = max_total_tokens - (
-            system_tokens
-            + target_tokens
-            + expected_output_tokens
-            + safety_margin_tokens
+        plan = self.plan_budget(
+            stage=stage,
+            source_text=target_text,
+            draft_text=draft_text,
+            critique_text=critique_text,
         )
-
-        # If the target segment is so huge it eats the whole budget, skip context
-        if available_budget_tokens <= 0:
-            return ""
-
-        # We want to prioritize immediate backward, then immediate forward.
-        # backward is chronological [past_distant, past_recent]
-        # forward is chronological [future_immediate, future_distant]
-
-        b_idx = len(backward) - 1
-        f_idx = 0
-
-        selected_backward: list[str] = []
-        selected_forward: list[str] = []
-        current_tokens = 0
-
-        # We alternate starting with backward
-        while b_idx >= 0 or f_idx < len(forward):
-            added = False
-            if b_idx >= 0:
-                seg = backward[b_idx]
-                tokens = count_tokens(seg)
-                if current_tokens + tokens <= available_budget_tokens:
-                    selected_backward.insert(0, seg)  # Keep chronological
-                    current_tokens += tokens
-                    b_idx -= 1
-                    added = True
-                else:
-                    b_idx = -1  # Stop entirely if we hit limit to keep continuity
-
-            if f_idx < len(forward):
-                seg = forward[f_idx]
-                tokens = count_tokens(seg)
-                if current_tokens + tokens <= available_budget_tokens:
-                    selected_forward.append(seg)
-                    current_tokens += tokens
-                    f_idx += 1
-                    added = True
-                else:
-                    f_idx = len(forward)  # Stop entirely
-
-            if not added:
-                break
-
-        requested_total = len(backward) + len(forward)
-        injected_total = len(selected_backward) + len(selected_forward)
-
-        if injected_total < requested_total:
+        if plan.infeasible:
             logger.warning(
-                f"Token Budget Exceeded: Truncated bidirectional context. "
-                f"Requested {requested_total} segments, injected {injected_total} segments."
+                "Token budget infeasible for stage=%s: fixed=%s reserved_output=%s "
+                "limit=%s; skipping neighbor context.",
+                stage,
+                plan.fixed_prompt_tokens,
+                plan.reserved_output,
+                plan.context_limit,
             )
-
-        if not selected_backward and not selected_forward:
             return ""
 
-        parts = ["<context>"]
-        if selected_backward:
-            parts.append("<previous_segments>")
-            parts.append("\n".join(selected_backward))
-            parts.append("</previous_segments>")
-
-        parts.append("<target_segment_position/>")
-
-        if selected_forward:
-            parts.append("<next_segments>")
-            parts.append("\n".join(selected_forward))
-            parts.append("</next_segments>")
-
-        parts.append("</context>")
-        return "\n".join(parts)
+        block, _neighbor_tokens, truncated = ContextPacker.pack(
+            backward=backward,
+            forward=forward,
+            neighbor_budget=plan.neighbor_budget,
+            count_tokens=count_tokens,
+        )
+        if truncated:
+            logger.warning(
+                "neighbors_truncated stage=%s neighbor_budget=%s "
+                "reserved_output=%s fixed_prompt_tokens=%s context_limit=%s",
+                stage,
+                plan.neighbor_budget,
+                plan.reserved_output,
+                plan.fixed_prompt_tokens,
+                plan.context_limit,
+            )
+        return block
 
     def _call_llm(
-        self, model: str, messages: list[dict[str, str]], temperature: float
+        self,
+        model: str,
+        messages: list[dict[str, str]],
+        temperature: float,
+        *,
+        stage: str | None = None,
     ) -> LLMResponse:
         """Single LLM API call with the configured model and token settings."""
         total_prompt_tokens = sum(
             count_tokens(m["content"], model_name=model) for m in messages
         )
-        if total_prompt_tokens > self.model_context_limit:
+        plan = TokenBudgetPlanner.plan(
+            context_limit=self.model_context_limit,
+            max_tokens=self.max_tokens if self.max_tokens is not None else 0,
+            fixed_prompt_tokens=total_prompt_tokens,
+            output_token_mode=self.output_token_mode,
+            reasoning_reserve=self.reasoning_reserve,
+            tokenizer_fudge=self.tokenizer_fudge,
+            chat_template_overhead=self.chat_template_overhead,
+            domain_truncated=self.domain_truncated,
+        )
+        effective, footprint = TokenBudgetPlanner.call_footprint(
+            total_prompt_tokens, plan
+        )
+        if footprint > self.model_context_limit:
             raise ContextLengthExceededError(
-                f"Segment exceeds token limit. Manual translation or document splitting required. "
-                f"Estimated tokens: {total_prompt_tokens}, model limit: {self.model_context_limit}"
+                "Prompt plus reserved output exceeds model context limit. "
+                f"effective_prompt={effective}, overhead={plan.chat_template_overhead}, "
+                f"reserved_output={plan.reserved_output}, "
+                f"limit={self.model_context_limit}, "
+                f"raw_prompt_tokens={total_prompt_tokens}."
             )
 
         kwargs: dict[str, Any] = {
@@ -353,6 +427,15 @@ class OpenAIProvider(BaseLLMProvider):
                         res.cached_tokens = getattr(
                             final_usage.prompt_tokens_details, "cached_tokens", 0
                         )
+                    reasoning_tokens = 0
+                    details = getattr(final_usage, "completion_tokens_details", None)
+                    if details is not None:
+                        reasoning_tokens = int(
+                            getattr(details, "reasoning_tokens", 0) or 0
+                        )
+                    spent = max(res.completion_tokens or 0, reasoning_tokens)
+                    if not res.text and spent > 0:
+                        raise OutputTokenStarvationError(spent, stage=stage)
                 else:
                     # Fallback token estimation
                     res.prompt_tokens = sum(len(m["content"]) // 4 for m in messages)
@@ -378,7 +461,9 @@ class OpenAIProvider(BaseLLMProvider):
         if not has_linguistic_content(text):
             return LLMResponse(text=text)
 
-        context_block = self._build_context_block(context, target_text=text)
+        context_block = self._build_context_block(
+            context, target_text=text, stage="draft"
+        )
         current_system_prompt = self._render_system_prompt(context_block)
 
         user_prompt = self.prompt_manager.render("draft", text=text)
@@ -390,6 +475,7 @@ class OpenAIProvider(BaseLLMProvider):
                 {"role": "user", "content": user_prompt},
             ],
             temperature=self.temperature,
+            stage="draft",
         )
         res.text = validate_llm_output(res.text, source=text, stage="draft")
         return res
@@ -398,7 +484,12 @@ class OpenAIProvider(BaseLLMProvider):
         self, draft_text: str, source_text: str, context: ContextData | None = None
     ) -> LLMResponse:
         """Generate a critique of the given draft."""
-        context_block = self._build_context_block(context, target_text=source_text)
+        context_block = self._build_context_block(
+            context,
+            target_text=source_text,
+            stage="critique",
+            draft_text=draft_text,
+        )
         current_system_prompt = self._render_system_prompt(context_block)
 
         critique_prompt = self.prompt_manager.render(
@@ -414,6 +505,7 @@ class OpenAIProvider(BaseLLMProvider):
                 {"role": "user", "content": critique_prompt},
             ],
             temperature=self.reflection_temperature,
+            stage="critique",
         )
         res.text = validate_llm_output(res.text, source=source_text, stage="critique")
         return res
@@ -426,7 +518,13 @@ class OpenAIProvider(BaseLLMProvider):
         context: ContextData | None = None,
     ) -> LLMResponse:
         """Apply critique to draft and return the refined translation."""
-        context_block = self._build_context_block(context, target_text=source_text)
+        context_block = self._build_context_block(
+            context,
+            target_text=source_text,
+            stage="refine",
+            draft_text=draft_text,
+            critique_text=critique_text,
+        )
         current_system_prompt = self._render_system_prompt(context_block)
 
         refine_prompt = self.prompt_manager.render(
@@ -443,6 +541,7 @@ class OpenAIProvider(BaseLLMProvider):
                 {"role": "user", "content": refine_prompt},
             ],
             temperature=self.reflection_temperature,
+            stage="refine",
         )
         res.text = validate_llm_output(res.text, source=source_text, stage="refine")
         return res

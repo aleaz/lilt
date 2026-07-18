@@ -65,8 +65,13 @@ class ProviderFactory:
         source_lang = config.get("source_lang", "English")
         target_lang = config.get("target_lang", "Spanish")
         domain_context = config.get("domain_context")
+        domain_context_max_tokens = int(config.get("domain_context_max_tokens", 512))
 
         model_context_limit = int(config.get("model_context_limit", 8192))
+        output_token_mode = config.get("output_token_mode", "shared_budget")
+        reasoning_reserve = int(config.get("reasoning_reserve", 0))
+        tokenizer_fudge = float(config.get("tokenizer_fudge", 1.1))
+        chat_template_overhead = int(config.get("chat_template_overhead", 48))
 
         if provider_name == "openai":
             return OpenAIProvider(
@@ -87,6 +92,11 @@ class ProviderFactory:
                 target_lang=target_lang,
                 domain_context=domain_context,
                 model_context_limit=model_context_limit,
+                output_token_mode=str(output_token_mode),
+                reasoning_reserve=reasoning_reserve,
+                tokenizer_fudge=tokenizer_fudge,
+                chat_template_overhead=chat_template_overhead,
+                domain_context_max_tokens=domain_context_max_tokens,
             )
         else:
             raise ValueError(

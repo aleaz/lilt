@@ -2,6 +2,7 @@ import httpx
 import pytest
 from openai import APIConnectionError, AuthenticationError
 
+from lilt.exceptions import OutputTokenStarvationError
 from lilt.llm.openai_provider import (
     ContextLengthExceededError,
     OpenAIProvider,
@@ -268,66 +269,58 @@ def test_openai_provider_tenacity_retry(mocker):
 
 
 def test_openai_provider_dynamic_token_accounting():
+    # Tight neighbor budget: only the most recent backward segment fits.
     provider = OpenAIProvider(
         api_key="test",
         base_url="http://test",
-        model_context_limit=1000,  # Small limit to force truncation
+        model_context_limit=1500,
+        max_tokens=900,
+        tokenizer_fudge=1.0,
+        chat_template_overhead=0,
     )
 
-    # max_total_tokens = 1000
-    # system_tokens = 600
-    # safety = 100
-    # Base available budget = 300 tokens for target + output + context
-
-    # Target text is 1 token ("word"). Expected output is 1 token.
-    # Budget for context = 300 - 1 - 1 = 298 tokens.
-
     target_text = "word"
-
-    # Create 3 context segments of ~102 tokens each.
-    # Total context = 306 tokens. This exceeds the 298 tokens budget.
-    # It should only include the most recent 2 segments (204 tokens).
-
     context = [
-        "oldest " * 100,  # Oldest
-        "middle " * 100,  # Middle
-        "newest " * 100,  # Newest
+        "oldest " * 100,
+        "middle " * 100,
+        "newest " * 100,
     ]
 
-    block = provider._build_context_block(context, target_text)
+    block = provider._build_context_block(context, target_text, stage="draft")
 
-    # Should contain middle and newest, but not oldest
-    assert "middle " * 100 in block
+    # Budget fits two most-recent backward neighbors; oldest is dropped.
     assert "newest " * 100 in block
+    assert "middle " * 100 in block
     assert "oldest " * 100 not in block
 
 
 def test_openai_provider_dynamic_token_accounting_zero_budget():
+    # Reserved output + measured fixed prompt leave no neighbor budget.
     provider = OpenAIProvider(
-        api_key="test", base_url="http://test", model_context_limit=1000
+        api_key="test",
+        base_url="http://test",
+        model_context_limit=1200,
+        max_tokens=1000,
+        tokenizer_fudge=1.0,
+        chat_template_overhead=48,
     )
 
-    # max_total_tokens = 1000
-    # system = 600, safety = 100 -> base available = 300 tokens.
-    # Target text is 150 tokens. Expected output = 225 tokens.
-    # Required for target + output = 375 tokens.
-    # Budget is exceeded (-75 tokens). Context should be empty.
     target_text = "huge " * 150
-
     context = ["context " * 100]
 
-    block = provider._build_context_block(context, target_text)
-
-    # Budget is exceeded, block should be empty
+    block = provider._build_context_block(context, target_text, stage="draft")
     assert block == ""
 
 
 def test_openai_provider_pre_flight_token_limit_exceeded(mocker):
-    # Set context limit low enough that even a single short request exceeds it
+    # Context limit below reserved output + fudged prompt → never call the API.
     provider = OpenAIProvider(
         api_key="test",
         base_url="http://test",
-        model_context_limit=10,  # extremely low limit
+        model_context_limit=200,
+        max_tokens=150,
+        tokenizer_fudge=1.0,
+        chat_template_overhead=48,
     )
 
     mock_create = mocker.patch.object(
@@ -339,13 +332,11 @@ def test_openai_provider_pre_flight_token_limit_exceeded(mocker):
     with pytest.raises(ContextLengthExceededError) as exc_info:
         list(
             provider.translate_segment_iter(
-                "This is a test segment that will exceed limit"
+                "This is a test segment that will exceed limit " * 20
             )
         )
 
-    assert "Segment exceeds token limit" in str(exc_info.value)
-
-    # Ensure no API calls were made
+    assert "reserved_output" in str(exc_info.value)
     mock_create.assert_not_called()
 
 
@@ -382,3 +373,48 @@ def test_openai_provider_does_not_retry_authentication_error(mocker):
         provider.generate_draft("Hello")
 
     assert mock_create.call_count == 1
+
+
+def test_domain_context_truncated_to_cap():
+    long_domain = "domain " * 500
+    provider = OpenAIProvider(
+        api_key="test",
+        base_url="http://test",
+        domain_context=long_domain,
+        domain_context_max_tokens=32,
+    )
+    assert provider.domain_truncated is True
+    assert provider.domain_context is not None
+    assert len(provider.domain_context) < len(long_domain)
+
+
+def test_output_token_starvation_raises(mocker):
+    class Usage:
+        prompt_tokens = 10
+        completion_tokens = 128
+        prompt_tokens_details = None
+        completion_tokens_details = None
+
+    class StarvingChunk:
+        def __init__(self):
+            self.choices = [MockChunkChoice(MockDelta(None))]
+            self.usage = Usage()
+
+    class StarvingResponse:
+        def __iter__(self):
+            yield StarvingChunk()
+
+    provider = OpenAIProvider(
+        api_key="test",
+        base_url="http://test",
+        model_context_limit=8192,
+        max_tokens=256,
+    )
+    mocker.patch.object(
+        provider.client.chat.completions,
+        "create",
+        return_value=StarvingResponse(),
+    )
+
+    with pytest.raises(OutputTokenStarvationError, match="completion token"):
+        provider.generate_draft("Hello world")

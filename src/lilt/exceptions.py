@@ -132,3 +132,30 @@ class InvalidTransitionError(LiltDomainError):
         super().__init__(f"Invalid status transition: {from_status} -> {to_status}")
         self.from_status = from_status
         self.to_status = to_status
+
+
+class OutputTokenStarvationError(LiltDomainError):
+    """Raised when the model spent completion tokens but returned empty content.
+
+    Typical with thinking/reasoning models when ``max_tokens`` is consumed by
+    internal reasoning and ``message.content`` stays empty. Do not blindly retry
+    with the same budget; raise ``max_tokens`` or switch ``output_token_mode``.
+    """
+
+    def __init__(self, completion_tokens: int, stage: str | None = None):
+        stage_bit = f" during {stage}" if stage else ""
+        super().__init__(
+            f"LLM returned empty content{stage_bit} after using "
+            f"{completion_tokens} completion token(s). The serving stack likely "
+            "spent the output budget on reasoning/thinking. Increase "
+            "llm.max_tokens, use output_token_mode=split_budget with "
+            "reasoning_reserve, or disable thinking for this stage."
+        )
+        self.completion_tokens = completion_tokens
+        self.stage = stage
+
+
+class BudgetPreflightError(LiltDomainError):
+    """Raised when token budget preflight proves a batch is infeasible."""
+
+    pass
