@@ -141,6 +141,12 @@ requires `--force`. Enforced in `TMService.update_segment_status` and TM import.
 Import rows that change translation text must pass `SegmentTranslationValidator`
 (placeholder multiset / syntax); failing rows are skipped.
 
+Machine translation (workflow/sequential) does **not** call `SegmentTransitionPolicy`.
+Stage scheduling and overwrite rules live only in `SegmentPolicy`
+(`is_eligible_for_workflow_stage` / `is_eligible_for_sequential`); strategies set
+`seg.status` directly after LLM work. Do not expect `tm set-status` legality to
+match what `pipeline translate` will pick.
+
 ## Decisions
 
 | Decision | Rationale | Rejected alternative |

@@ -5,6 +5,7 @@ import yaml
 
 from lilt.exceptions import TranslationValidationError
 from lilt.models.segment import SegmentStatus, StageArtifact, StoredSegment
+from lilt.models.translation_stage import TranslationStage
 from lilt.services.pipeline_service import PipelineService
 from lilt.tm.repository import TMRepository
 
@@ -144,6 +145,37 @@ def test_idle_translation_hints_drafted_critiqued_resume():
         assert "drafted/critiqued" in text
         assert "critique" in text or "refine" in text
         assert "--force" in done_msg[3]
+
+
+def test_idle_force_refine_hints_need_draft_first():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_dir = os.path.join(tmpdir, ".lilt")
+        os.makedirs(config_dir, exist_ok=True)
+        with open(os.path.join(config_dir, "lilt.yaml"), "w", encoding="utf-8") as f:
+            yaml.dump({"project": {"source_lang": "en", "target_lang": "es"}}, f)
+
+        repo = TMRepository(base_dir=os.path.join(config_dir, "tm"))
+        repo.save_namespace(
+            "gen_ns",
+            [
+                StoredSegment(
+                    id="seg1",
+                    source_hash="hash-seg1",
+                    source_text="Hello",
+                    status=SegmentStatus.GENERATED,
+                    translation="",
+                )
+            ],
+        )
+        service = PipelineService(tmpdir)
+        messages = list(
+            service.run_translation("gen_ns", force=True, stage=TranslationStage.REFINE)
+        )
+        done_msg = next(msg for msg in messages if msg[2] == "done")
+        text = done_msg[3].lower()
+        assert "refine" in text
+        assert "critiqued" in text
+        assert "draft" in text
 
 
 def test_submit_human_translation_from_generated():

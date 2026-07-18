@@ -1,5 +1,7 @@
 """Tests for critique response parsing."""
 
+import pytest
+
 from lilt.llm.critique_parser import CritiqueParser
 
 
@@ -27,15 +29,16 @@ Example object {"nested": true} in reasoning.
     assert result.issues[0].category == "fluency"
 
 
-def test_parse_critique_malformed_defaults_to_refine():
-    result = CritiqueParser.parse("No JSON here, just prose.")
-    assert result.requires_refine is True
-    assert result.issues == []
+def test_try_parse_malformed_returns_none():
+    assert CritiqueParser.try_parse("No JSON here, just prose.") is None
+    with pytest.raises(ValueError, match="requires_refine"):
+        CritiqueParser.parse("No JSON here, just prose.")
 
 
-def test_parse_critique_empty_string():
-    result = CritiqueParser.parse("")
-    assert result.requires_refine is True
+def test_try_parse_empty_returns_none():
+    assert CritiqueParser.try_parse("") is None
+    with pytest.raises(ValueError, match="requires_refine"):
+        CritiqueParser.parse("")
 
 
 def test_parse_critique_json_fence_with_nested_braces():

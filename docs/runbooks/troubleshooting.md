@@ -60,4 +60,16 @@ TEXINPUTS=".:../../:" pdflatex main.tex
 TEXINPUTS=".:../../:" pdflatex main.tex
 ```
 
+### Before real testing
+
+Checklist for a careful first run on a real project (single writer, explicit config):
+
+1. **Config** — Ensure `.lilt/lilt.yaml` is non-empty and sets at least `project.source_lang` / `project.target_lang` and `llm.base_url` / `llm.model` for your endpoint. An empty file raises `ConfigurationError` (no silent Spanish/localhost defaults).
+2. **One writer per namespace** — Do not run `sync` and `translate` in parallel on the same namespace (`NamespaceBusyError`).
+3. **Resume mid-pipeline** — After `--stage draft`, continue with `--stage critique` then `--stage refine`. In workflow mode, `--force` only expands **draft** eligibility; `--force --stage refine` alone will not invent `critiqued` artifacts.
+4. **Sequential vs workflow** — Sequential `--force` re-runs full D→C→R on non-immutable segments; workflow stage resume is safer for partial progress.
+5. **Namespace paths** — Avoid filenames that collide under `__` encoding (e.g. `chapters/intro.tex` vs `chapters__intro.tex`); sync fails loud when collisions exist.
+6. **Flaky local LLMs** — Raise `llm.draft_empty_retries` (default `1`) if empty drafts are common; garbage critique JSON marks the segment `conflict` instead of feeding refine.
+7. **Partial sync** — If multi-file sync fails mid-way, fix the failing `.tex` and re-sync; already-updated namespaces are listed in the error (no automatic rollback).
+
 ---

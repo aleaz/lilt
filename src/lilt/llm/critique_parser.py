@@ -12,14 +12,14 @@ class CritiqueParser:
     """Extracts structured critique results from free-form LLM output."""
 
     @staticmethod
-    def parse(text: str) -> CritiqueResult:
-        """Extract a CritiqueResult from free-form critique LLM output.
+    def try_parse(text: str) -> CritiqueResult | None:
+        """Return CritiqueResult when JSON with ``requires_refine`` is found.
 
         Tries fenced ```json blocks first, then scans for the last valid JSON object.
-        Defaults to requires_refine=True when parsing fails.
+        Returns ``None`` when the text is empty or no valid critique payload exists.
         """
         if not text or not text.strip():
-            return CritiqueResult(requires_refine=True, issues=[])
+            return None
 
         fence_matches = list(_JSON_FENCE_RE.finditer(text))
         if fence_matches:
@@ -43,7 +43,20 @@ class CritiqueParser:
                             return parsed
                         break
 
-        return CritiqueResult(requires_refine=True, issues=[])
+        return None
+
+    @staticmethod
+    def parse(text: str) -> CritiqueResult:
+        """Extract a CritiqueResult or raise ValueError when structure is missing.
+
+        Prefer :meth:`try_parse` when callers need soft failure.
+        """
+        parsed = CritiqueParser.try_parse(text)
+        if parsed is None:
+            raise ValueError(
+                "Critique output is not valid JSON with a boolean requires_refine field"
+            )
+        return parsed
 
     @staticmethod
     def _try_parse(raw: str) -> CritiqueResult | None:

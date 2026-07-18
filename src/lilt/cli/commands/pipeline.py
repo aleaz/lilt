@@ -83,7 +83,13 @@ def translate(
         help=f"Translate only segments with this status ({StatusResolver.help_text()})",
     ),
     force: bool = typer.Option(
-        False, "--force", "-f", help="Force re-translation of all segments"
+        False,
+        "--force",
+        "-f",
+        help=(
+            "In workflow mode, expands draft eligibility only (not critique/refine). "
+            "In sequential mode, re-runs full D→C→R on non-immutable segments."
+        ),
     ),
     segment_id: str | None = typer.Option(
         None, "--id", help="Translate only a specific segment ID"
@@ -91,7 +97,11 @@ def translate(
     stage: TranslationStage | None = typer.Option(
         None,
         "--stage",
-        help="Execute a specific workflow stage (draft, critique, refine)",
+        help=(
+            "Workflow only: draft, critique, or refine. "
+            "Critique needs drafted segments; refine needs critiqued "
+            "(--force does not invent those artifacts)."
+        ),
     ),
     mode: TranslationMode | None = typer.Option(
         None,

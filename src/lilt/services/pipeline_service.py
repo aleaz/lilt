@@ -159,16 +159,29 @@ class TranslationOrchestrator:
                     yield current, total, "done", "Done", False
 
         if not yielded_done:
-            msg = self._idle_translation_message(namespace, total, force)
+            msg = self._idle_translation_message(namespace, total, force, stage)
             yield current, total, "done", msg, False
 
-    def _idle_translation_message(self, namespace: str, total: int, force: bool) -> str:
+    def _idle_translation_message(
+        self,
+        namespace: str,
+        total: int,
+        force: bool,
+        stage: TranslationStage | None = None,
+    ) -> str:
         if total > 0:
             return "Done"
         segments = self.ctx.repo.load_namespace(namespace)
         active = [s for s in segments.values() if s.status != SegmentStatus.DEPRECATED]
         if not active:
             return "Done (no translatable segments; run sync on a .tex file first, or this fixture is parser-roundtrip only)"
+        stage_value = stage.value if stage is not None else None
+        if stage_value in ("critique", "refine"):
+            needed = "drafted" if stage_value == "critique" else "critiqued"
+            return (
+                f"Done (idle: --stage {stage_value} needs {needed} segments; "
+                "use --stage draft [--force] then resume critique|refine)"
+            )
         mid_pipeline = [
             s
             for s in active

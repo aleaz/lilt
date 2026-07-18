@@ -62,9 +62,9 @@ lilt pipeline translate [NAMESPACE] [OPTIONS]
 |--------|-------------|
 | `--all, -a` | Translate all namespaces |
 | `--status, -s STATUS` | Filter by segment status |
-| `--force, -f` | Re-translate eligible segments (archives prior translation) |
+| `--force, -f` | Workflow: expands **draft** eligibility only (archives prior translation). Does **not** make critique/refine pick non-`drafted`/`critiqued` segments. Sequential: re-runs full D→C→R on non-immutable segments |
 | `--id SEGMENT_ID` | Translate a single segment prefix |
-| `--stage STAGE` | Workflow only: `draft`, `critique`, or `refine` |
+| `--stage STAGE` | Workflow only: `draft`, `critique`, or `refine`. Critique requires `drafted`; refine requires `critiqued`. Use `--stage draft [--force]` then resume stages — do not expect `--force --stage refine` alone to re-draft |
 | `--mode MODE` | Override `translation_mode`: `workflow` or `sequential` |
 
 Examples:

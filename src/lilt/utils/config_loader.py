@@ -31,10 +31,17 @@ def load_lilt_config(config_path: str) -> LiltConfig:
     """Load lilt.yaml with syntax and semantic validation.
 
     Raises:
-        ConfigurationError: On invalid YAML, non-mapping root, or schema errors.
+        ConfigurationError: On invalid YAML, empty root, non-mapping root, or schema errors.
     """
     raw = load_yaml_config(config_path)
     root = _ensure_mapping_root(raw, path=config_path)
+    if not root:
+        raise ConfigurationError(
+            f"Configuration in '{config_path}' is empty. "
+            "Add at least a 'project' section (source_lang, target_lang) "
+            "and preferably 'llm' (base_url, model); "
+            "an empty file no longer loads silent defaults."
+        )
     _validate_llm_block(root, path=config_path)
     try:
         return LiltConfig.model_validate(root)

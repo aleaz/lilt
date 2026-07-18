@@ -70,7 +70,7 @@ flowchart LR
 
 Resolved by `TranslationMode.from_llm_config()`.
 
-Idle sequential (or empty batch) with leftover `drafted`/`critiqued` segments reports a resume hint (`workflow --stage critique|refine`, or sequential `--force`) instead of “already translated”.
+Idle sequential (or empty batch) with leftover `drafted`/`critiqued` segments reports a resume hint (`workflow --stage critique|refine`, or sequential `--force`) instead of “already translated”. Idle `--stage critique|refine` with no matching statuses hints `--stage draft [--force]` first (`--force` does not expand critique/refine eligibility).
 
 ### Reflection pipeline (`reflection_enabled: true`)
 
@@ -79,8 +79,8 @@ generated → drafted → critiqued → refined
 ```
 
 - **Draft:** contextual RAG with bidirectional window in workflow; backward-priority in sequential.
-- **Critique:** MQM JSON; short-circuits refine when `requires_refine: false`. No placeholder/syntax validation on critique output.
-- **Refine:** correction pass; up to **3 validation retries** with error feedback appended to critique text (both workflow and sequential).
+- **Critique:** MQM JSON with `requires_refine`; short-circuits refine when `requires_refine: false`. Empty critique bypasses to accept draft. Non-empty output that fails structural JSON parse → `conflict` (refine not called).
+- **Refine:** correction pass; up to **3 validation retries** with error feedback appended to critique text (both workflow and sequential). Invalid stored critique JSON also aborts refine with `conflict`.
 - Re-draft clears prior `critique` and `refined` artifacts.
 
 ### Context resolution
@@ -199,7 +199,6 @@ artifacts.
 ## Known gaps
 
 - `TerminologyValidator` and `StructureValidator` not implemented (Phase 2).
-- Critique stage output is not validated before refine.
 
 ## Open / deferred
 

@@ -271,6 +271,13 @@ class WorkflowReflectionStrategy(BaseReflectionStrategy):
             self._apply_critique_bypass(seg, namespace, model_name)
             return
 
+        if not critique_result.parse_ok:
+            seg.critique = StageArtifact(content=critique_text, model=model_name)
+            raise ValidationError(
+                "Critique output is not valid JSON with a boolean requires_refine field",
+                attempt_text=draft_text,
+            )
+
         seg.critique = StageArtifact(content=critique_text, model=model_name)
         seg.reflection_meta = ReflectionMeta(
             used=True,

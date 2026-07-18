@@ -102,6 +102,20 @@ def test_run_draft_and_critique_delegate_to_provider(mock_llm):
 
     assert draft.text == "Hola draft"
     assert critique.requires_refine is False
+    assert critique.parse_ok is True
+
+
+def test_run_reflection_pass_rejects_unparseable_critique(mock_llm):
+    mock_llm.generate_critique.return_value = LLMResponse(text="not json critique")
+    with pytest.raises(ValidationError, match="requires_refine"):
+        run_reflection_pass(mock_llm, "Hello")
+    mock_llm.generate_refine.assert_not_called()
+
+
+def test_run_refine_rejects_unparseable_critique(mock_llm):
+    with pytest.raises(ValidationError, match="requires_refine"):
+        run_refine(mock_llm, "Hola draft", "garbage critique", "Hello")
+    mock_llm.generate_refine.assert_not_called()
 
 
 def test_validation_retries_for_source_scales_with_density() -> None:

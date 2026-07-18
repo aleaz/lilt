@@ -162,6 +162,7 @@ IDs (see [02-persistence](02-persistence.md)) keep diffs reviewable.
 | Condition | Effect | Recovery |
 |-----------|--------|----------|
 | Missing `.lilt/lilt.yaml` | `ProjectNotInitializedError` | `lilt project init` |
+| Empty `lilt.yaml` (null / `{}`) | `ConfigurationError` — silent full defaults are not applied | Add at least `project` (and preferably `llm`) |
 | Invalid YAML / schema | `ConfigurationError` with field detail | Fix `lilt.yaml` |
 | Unset `${VAR}` without default | `ConfigurationError` on load | Set env or add `:-default` |
 | Path outside workspace | Rejected | Use paths under project root |

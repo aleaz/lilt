@@ -567,3 +567,25 @@ def test_workflow_refine_force_skips_generated_without_artifacts(mock_tm, mock_l
     assert start_events[0]["total"] == 0
     assert seg1.status == SegmentStatus.GENERATED
     mock_llm.generate_refine.assert_not_called()
+
+
+def test_workflow_critique_garbage_marks_conflict_without_refine(mock_tm, mock_llm):
+    seg1 = StoredSegment(
+        id="1",
+        source_hash="a",
+        source_text="Hello",
+        status=SegmentStatus.DRAFTED,
+        translation="Hola draft",
+        draft=StageArtifact(content="Hola draft", model="m"),
+    )
+    mock_tm.load_namespace.return_value = {"1": seg1}
+    mock_llm.generate_critique.return_value = LLMResponse(text="prose without json")
+
+    pipeline = TranslatorPipeline(
+        tm=mock_tm, llm=mock_llm, translation_mode=TranslationMode.WORKFLOW
+    )
+
+    list(pipeline.run_translation_iter("test_ns", stage="critique"))
+
+    assert seg1.status == SegmentStatus.CONFLICT
+    mock_llm.generate_refine.assert_not_called()
