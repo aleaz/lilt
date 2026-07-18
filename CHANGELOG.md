@@ -35,6 +35,10 @@ There is no tagged release yet. Everything below is on `main` under
 - Strategies import stage/budget helpers via `core.translation.reflection_runtime`.
 - PDF compile lives in `PdfCompileService` (not inside build orchestrator).
 - Human-edit validation raises `ValidationError` directly (no re-wrap that drops `attempt_text`).
+- Empty-LLM progress events use `kind=llm` in workflow (aligned with sequential).
+- Namespace derivation lives in `tm.namespace`; TM status cost estimates via `TMService`.
+- Translate CLI uses public workspace APIs (no `_get_config` / `service.repo` privates).
+- Docs label Terminology/Structure validators as Phase 3 (aligned with product context).
 
 ### Fixed
 

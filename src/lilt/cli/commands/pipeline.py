@@ -121,10 +121,10 @@ def translate(
             "Namespace argument provided alongside --all flag. Ignoring namespace argument."
         )
 
-    service._get_config()  # raises ProjectNotInitializedError if not init'd
+    service.ctx.preconditions.require_initialized()
 
     if all_namespaces:
-        target_namespaces = service.repo.list_namespaces()
+        target_namespaces = service.ctx.repo.list_namespaces()
     else:
         assert namespace is not None, "Namespace must be provided if --all is not set"
         target_namespaces = [namespace]

@@ -12,7 +12,6 @@ from lilt.exceptions import (
     ConfigurationError,
 )
 from lilt.llm.factory import ProviderFactory
-from lilt.models.config import LiltConfig
 from lilt.models.segment import SegmentStatus, StoredSegment
 from lilt.models.segment_policy import SegmentPolicy
 from lilt.models.segment_transition import SegmentTransitionPolicy
@@ -24,8 +23,8 @@ from lilt.parser.ast_parser import LatexParser
 from lilt.parser.dependency_resolver import DependencyResolver
 from lilt.services.pdf_compile import PdfCompileService
 from lilt.services.workspace_context import WorkspaceContext
+from lilt.tm.namespace import derive_namespace, find_namespace_collisions
 from lilt.tm.segment_lookup import resolve_unique_segment
-from lilt.utils.namespace import derive_namespace, find_namespace_collisions
 from lilt.validation.validators import SegmentTranslationValidator
 
 
@@ -394,6 +393,3 @@ class PipelineService:
         return self._review.submit_human_translation(
             namespace, segment_id, new_translation, new_status
         )
-
-    def _get_config(self) -> LiltConfig:
-        return self.ctx.preconditions.load_config()

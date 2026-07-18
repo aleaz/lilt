@@ -1,7 +1,7 @@
 import os
 import tempfile
 
-from lilt.utils.namespace import derive_namespace, find_namespace_collisions
+from lilt.tm.namespace import derive_namespace, find_namespace_collisions
 
 
 def test_derive_namespace_root_file():

@@ -169,7 +169,7 @@ def test_workflow_empty_draft_sets_actionable_hint(mock_tm, mock_llm):
     assert seg1.error_meta is not None
     assert "Hint:" in seg1.error_meta.message
     assert "EmptyLLMOutputError" in seg1.error_meta.error_type
-    failure = next(e for e in events if e.get("status") == "FAIL (Error)")
+    failure = next(e for e in events if e.get("status") == "FAIL (LLM Error)")
     assert failure is not None
 
 

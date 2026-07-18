@@ -201,9 +201,9 @@ artifacts.
 
 ## Known gaps
 
-- `TerminologyValidator` and `StructureValidator` not implemented (Phase 2).
+- `TerminologyValidator` and `StructureValidator` not implemented (Phase 3).
 
 ## Open / deferred
 
-- Phase 2 validators integrated with glossary.
+- Phase 3 validators integrated with glossary.
 - Benchmark-driven decision on strict backward-only sequential context.

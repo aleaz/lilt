@@ -197,7 +197,12 @@ class WorkflowReflectionStrategy(BaseReflectionStrategy):
                             }
                         )
                     yield progress_error(
-                        seg.id, time.time() - start_time, str(exc), kind="pipeline"
+                        seg.id,
+                        time.time() - start_time,
+                        str(exc),
+                        kind="llm"
+                        if isinstance(exc, EmptyLLMOutputError)
+                        else "pipeline",
                     )
 
         self.checkpoint.finalize_stage(namespace, active_segments)

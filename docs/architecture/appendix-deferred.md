@@ -33,7 +33,7 @@ Planned features:
 **Current behavior:** User-managed Git; JSONL + stable IDs are Git-friendly by design
 (see [01-platform](01-platform.md)).
 
-## Validators Phase 2
+## Validators Phase 3
 
 **Status:** NOT IMPLEMENTED
 

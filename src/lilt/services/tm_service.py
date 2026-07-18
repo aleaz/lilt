@@ -206,6 +206,26 @@ class TMService:
 
         return total_stats, corrupt_namespaces
 
+    def estimate_token_costs(
+        self,
+        *,
+        tokens_total: int,
+        tokens_pending: int,
+        tokens_reflection: int,
+    ) -> tuple[float, float, float]:
+        """Return ``(total, pending, reflection)`` USD estimates from config price."""
+        try:
+            config = self.ctx.preconditions.load_config()
+            cost_per_million = float(config.llm.token_price_per_million)
+        except Exception:
+            cost_per_million = 5.0
+        scale = cost_per_million / 1_000_000
+        return (
+            tokens_total * scale,
+            tokens_pending * scale,
+            tokens_reflection * scale,
+        )
+
     def show_segment(self, namespace: str, segment_id: str) -> StoredSegment:
         """Fetch the full details of a segment by its ID prefix."""
         segments = self._get_namespace_segments(namespace)

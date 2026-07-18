@@ -34,7 +34,7 @@ Keep generated evaluation workspaces and third-party paper downloads out of this
 | [06-build-output](06-build-output.md) | Build and output | Document reconstruction, shadow directory |
 | [07-cli-application](07-cli-application.md) | CLI and services | Commands, services, editor integration |
 | [08-observability](08-observability.md) | Telemetry and cost | SQLite records, stats, cost estimation |
-| [appendix-deferred](appendix-deferred.md) | Future work | Plugins, validators Phase 2+, git automation |
+| [appendix-deferred](appendix-deferred.md) | Future work | Plugins, validators Phase 3, git automation |
 
 ## Pipeline cheat sheet
 
@@ -53,7 +53,7 @@ Human review loop: `lilt pipeline review` then `lilt pipeline edit`.
 | Concept | Description | Primary modules |
 |---------|-------------|-----------------|
 | **Segment** | Atomic translatable unit with stable ID, masked `source_text`, `translation`, `status` | `models/segment.py`, `tm/repository.py` |
-| **Namespace** | TM partition from encoded relative `.tex` path (e.g. `main.jsonl`, `chapters__intro.jsonl`) | `utils/namespace.py`, `tm/repository.py` |
+| **Namespace** | TM partition from encoded relative `.tex` path (e.g. `main.jsonl`, `chapters__intro.jsonl`) | `tm/namespace.py`, `tm/repository.py` |
 | **Translation Memory** | Append-only JSONL per namespace under `.lilt/tm/` | `tm/repository.py` |
 | **Placeholder map** | Persisted mask tokens (`<ref>`, `<macro>`, etc.) for build-time unmask | `parser/placeholder_engine.py`, `StoredSegment.placeholders` |
 | **Reflection artifact** | Intermediate `draft` / `critique` / `refined` text (workflow mode) | `core/translation/` |
@@ -134,7 +134,7 @@ bracket nodes `["step"]` for processes and cylinders `[(store)]` for persistence
 | Term | Meaning in LILT |
 |------|-----------------|
 | **Product Phase N** | Product roadmap milestone in [Product Context](00-product-context.md) |
-| **Validator Phase 2** | Future `TerminologyValidator`, `StructureValidator` ([appendix-deferred](appendix-deferred.md)) |
+| **Validator Phase 3** | Future `TerminologyValidator`, `StructureValidator` ([appendix-deferred](appendix-deferred.md)) |
 | **Identity Phase 2** | AST-node diffing with stable IDs across structural moves (deferred) |
 | **Shipped** | Implemented in code; documented in L1 guides and PRD "Shipped" section |
 

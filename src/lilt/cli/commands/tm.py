@@ -1,7 +1,5 @@
 """CLI commands for Translation Memory namespace and segment management."""
 
-import os
-
 import typer
 from rich.markup import escape
 
@@ -17,7 +15,6 @@ from lilt.exceptions import TMCorruptionError
 from lilt.models.segment import SegmentStatus
 from lilt.services.tm_service import TMService
 from lilt.utils.token_utils import count_tokens
-from lilt.utils.yaml_loader import load_yaml_config
 
 app = typer.Typer(
     help="Manage Translation Memory (TM) namespaces and segments.",
@@ -149,7 +146,7 @@ def list_segments(
             )
     else:
         # List namespaces and their segment count/states (fallback to status view)
-        _show_status(service, None, True, ctx.obj.get("workspace_dir", "."))
+        _show_status(service, None, True)
 
 
 def _inspect_segment(service: TMService, namespace: str, segment_id: str) -> None:
@@ -205,13 +202,12 @@ def status(
     ),
 ) -> None:
     """Show translation progress and statistics (dashboard)."""
-    workspace_dir = ctx.obj.get("workspace_dir", ".")
     service = _tm_service(ctx)
-    _show_status(service, namespace, all_namespaces, workspace_dir)
+    _show_status(service, namespace, all_namespaces)
 
 
 def _show_status(
-    service: TMService, namespace: str | None, all_namespaces: bool, workspace_dir: str
+    service: TMService, namespace: str | None, all_namespaces: bool
 ) -> None:
     if namespace is None and not all_namespaces:
         all_namespaces = True
@@ -274,17 +270,13 @@ def _show_status(
         table.add_section()
         table.add_row("[bold magenta]Cost Estimation[/bold magenta]", "", "", "")
 
-        try:
-            config_path = os.path.join(workspace_dir, ".lilt", "lilt.yaml")
-            config = load_yaml_config(config_path)
-            cost_per_million = float(
-                config.get("llm", {}).get("token_price_per_million", 5.00)
+        est_cost_total, est_cost_pending, est_cost_reflection = (
+            service.estimate_token_costs(
+                tokens_total=tokens_total,
+                tokens_pending=tokens_pending,
+                tokens_reflection=tokens_reflection,
             )
-        except Exception:
-            cost_per_million = 5.00
-        est_cost_total = (tokens_total / 1_000_000) * cost_per_million
-        est_cost_pending = (tokens_pending / 1_000_000) * cost_per_million
-        est_cost_reflection = (tokens_reflection / 1_000_000) * cost_per_million
+        )
 
         table.add_row("Total Estimated Cost", "--", "--", f"${est_cost_total:.3f}")
         table.add_row(
