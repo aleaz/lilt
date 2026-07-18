@@ -1,9 +1,14 @@
 """LLM provider protocol, response model, and context data types."""
 
+from __future__ import annotations
+
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:
+    from lilt.llm.token_budget import BudgetPlan
 
 
 @dataclass
@@ -73,6 +78,17 @@ class LLMProvider(Protocol):
 
     def stage_model_name(self, stage: str) -> str:
         """Return the model name used for a workflow stage or sequential pass."""
+        ...
+
+    def plan_budget(
+        self,
+        *,
+        stage: str,
+        source_text: str,
+        draft_text: str = "",
+        critique_text: str = "",
+    ) -> BudgetPlan:
+        """Compute a token :class:`~lilt.llm.token_budget.BudgetPlan` for a stage."""
         ...
 
     def translate_segment_iter(

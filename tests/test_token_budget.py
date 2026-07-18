@@ -4,13 +4,14 @@ from math import ceil
 
 from lilt.llm.token_budget import (
     OutputTokenMode,
-    TokenBudgetPlanner,
+    call_footprint,
+    plan_token_budget,
     safety_margin_tokens,
 )
 
 
 def test_shared_budget_reserved_equals_max_tokens() -> None:
-    plan = TokenBudgetPlanner.plan(
+    plan = plan_token_budget(
         context_limit=8192,
         max_tokens=2048,
         fixed_prompt_tokens=500,
@@ -25,7 +26,7 @@ def test_shared_budget_reserved_equals_max_tokens() -> None:
 
 
 def test_split_budget_adds_reasoning_reserve() -> None:
-    plan = TokenBudgetPlanner.plan(
+    plan = plan_token_budget(
         context_limit=8192,
         max_tokens=2048,
         fixed_prompt_tokens=500,
@@ -38,14 +39,14 @@ def test_split_budget_adds_reasoning_reserve() -> None:
 
 
 def test_fudge_reduces_neighbor_budget() -> None:
-    base = TokenBudgetPlanner.plan(
+    base = plan_token_budget(
         context_limit=8192,
         max_tokens=1024,
         fixed_prompt_tokens=1000,
         tokenizer_fudge=1.0,
         chat_template_overhead=0,
     )
-    fudged = TokenBudgetPlanner.plan(
+    fudged = plan_token_budget(
         context_limit=8192,
         max_tokens=1024,
         fixed_prompt_tokens=1000,
@@ -57,7 +58,7 @@ def test_fudge_reduces_neighbor_budget() -> None:
 
 
 def test_infeasible_when_fixed_prompt_too_large() -> None:
-    plan = TokenBudgetPlanner.plan(
+    plan = plan_token_budget(
         context_limit=2048,
         max_tokens=1024,
         fixed_prompt_tokens=2000,
@@ -75,14 +76,14 @@ def test_safety_margin_floor() -> None:
 
 
 def test_call_footprint_includes_reserved_output() -> None:
-    plan = TokenBudgetPlanner.plan(
+    plan = plan_token_budget(
         context_limit=1000,
         max_tokens=400,
         fixed_prompt_tokens=100,
         tokenizer_fudge=1.0,
         chat_template_overhead=48,
     )
-    effective, total = TokenBudgetPlanner.call_footprint(700, plan)
+    effective, total = call_footprint(700, plan)
     assert effective == 700
     assert total == 700 + 48 + 400
     assert total > plan.context_limit

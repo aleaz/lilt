@@ -9,7 +9,8 @@ from lilt.llm.reflection_pass import (
     run_reflection_pass,
     validation_retries_for_source,
 )
-from lilt.utils.text_utils import has_linguistic_content
+from lilt.llm.token_budget import BudgetPlan
+from lilt.parser.linguistic import has_linguistic_content
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,19 @@ class BaseLLMProvider(LLMProvider):
             return self.stage_model_name("draft")
         stage_attr = f"{stage}_model"
         return getattr(self, stage_attr, getattr(self, "model", "unknown"))
+
+    def plan_budget(
+        self,
+        *,
+        stage: str,
+        source_text: str,
+        draft_text: str = "",
+        critique_text: str = "",
+    ) -> BudgetPlan:
+        """Subclasses that support measured token budgets must override this."""
+        raise NotImplementedError(
+            f"{type(self).__name__} does not implement plan_budget"
+        )
 
     def translate_segment_iter(
         self, text: str, context: ContextData | None = None

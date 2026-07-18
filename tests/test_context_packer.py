@@ -1,6 +1,6 @@
-"""Unit tests for ContextPacker neighbor packing."""
+"""Unit tests for neighbor context packing."""
 
-from lilt.llm.context_packer import ContextPacker
+from lilt.llm.context_packer import pack_neighbor_context
 from lilt.utils.token_utils import count_tokens
 
 
@@ -11,7 +11,7 @@ def test_packer_fits_one_neighbor_truncates_second() -> None:
     recent_tokens = count_tokens(recent)
     budget = recent_tokens + 1  # distant cannot fit after recent
 
-    block, used, truncated = ContextPacker.pack(
+    block, used, truncated = pack_neighbor_context(
         backward=[distant, recent],
         forward=[],
         neighbor_budget=budget,
@@ -25,7 +25,7 @@ def test_packer_fits_one_neighbor_truncates_second() -> None:
 
 
 def test_packer_empty_when_budget_zero() -> None:
-    block, used, truncated = ContextPacker.pack(
+    block, used, truncated = pack_neighbor_context(
         backward=["hello world"],
         forward=[],
         neighbor_budget=0,

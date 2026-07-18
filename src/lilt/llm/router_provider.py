@@ -2,6 +2,7 @@
 
 from lilt.llm.base_provider import BaseLLMProvider
 from lilt.llm.provider import ContextData, LLMProvider, LLMResponse
+from lilt.llm.token_budget import BudgetPlan
 
 
 class RouterLLMProvider(BaseLLMProvider):
@@ -84,3 +85,19 @@ class RouterLLMProvider(BaseLLMProvider):
         provider = self.stage_provider(stage)
         stage_attr = f"{stage}_model"
         return getattr(provider, stage_attr, getattr(provider, "model", "unknown"))
+
+    def plan_budget(
+        self,
+        *,
+        stage: str,
+        source_text: str,
+        draft_text: str = "",
+        critique_text: str = "",
+    ) -> BudgetPlan:
+        """Delegate budget planning to the stage-specific provider."""
+        return self.stage_provider(stage).plan_budget(
+            stage=stage,
+            source_text=source_text,
+            draft_text=draft_text,
+            critique_text=critique_text,
+        )

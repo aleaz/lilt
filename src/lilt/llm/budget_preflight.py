@@ -7,22 +7,21 @@ from typing import Any
 
 from lilt.exceptions import BudgetPreflightError
 from lilt.llm.provider import LLMProvider
+from lilt.llm.router_provider import RouterLLMProvider
 from lilt.llm.token_budget import BudgetPlan
 from lilt.utils.token_utils import count_tokens
 
 logger = logging.getLogger(__name__)
 
 
-def _stage_provider(llm: LLMProvider, stage: str) -> Any:
-    from lilt.llm.router_provider import RouterLLMProvider  # noqa: PLC0415
-
+def _stage_provider(llm: LLMProvider, stage: str) -> LLMProvider:
     if isinstance(llm, RouterLLMProvider):
         return llm.stage_provider(stage)
     return llm
 
 
 def _plan_for_provider(
-    provider: Any,
+    provider: LLMProvider,
     *,
     stage: str,
     source_text: str,
@@ -30,7 +29,10 @@ def _plan_for_provider(
     plan_fn = getattr(provider, "plan_budget", None)
     if not callable(plan_fn):
         return None
-    plan = plan_fn(stage=stage, source_text=source_text)
+    try:
+        plan = plan_fn(stage=stage, source_text=source_text)
+    except NotImplementedError:
+        return None
     if not isinstance(plan, BudgetPlan):
         return None
     return plan
@@ -38,7 +40,7 @@ def _plan_for_provider(
 
 def _warn_if_domain_context_empty(llm: LLMProvider) -> None:
     """Log once when project domain_context is unset (recommended, not required)."""
-    provider = _stage_provider(llm, "draft")
+    provider: Any = _stage_provider(llm, "draft")
     domain = getattr(provider, "domain_context", None)
     if domain:
         return
