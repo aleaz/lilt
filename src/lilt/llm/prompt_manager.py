@@ -9,6 +9,7 @@ from typing import Any
 from jinja2 import BaseLoader, ChoiceLoader, Environment, FileSystemLoader
 
 from lilt.exceptions import ConfigurationError
+from lilt.utils.token_utils import count_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,10 @@ class PromptManager:
         except Exception as e:
             logger.error(f"Failed to load or render template {filename}: {e}")
             raise
+
+    def measure(self, template_name: str, **kwargs: Any) -> int:
+        """Return tiktoken count for a rendered template."""
+        return count_tokens(self.render(template_name, **kwargs))
 
     def _resolve_template_source(self, template_name: str) -> str:
         filename = f"{template_name}.jinja"
