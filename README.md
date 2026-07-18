@@ -2,22 +2,24 @@
 
 [![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![CI](https://img.shields.io/badge/CI-make%20ci-green.svg)](docs/development/overview.md)
+[![CI](https://img.shields.io/badge/CI-make%20ci-green.svg)](https://github.com/aleaz/lilt/actions)
 
-LILT is a CLI for continuous localization of LaTeX projects. It parses documents into an Abstract Syntax Tree (AST), extracts translatable **segments**, masks structural LaTeX into **placeholders**, runs an LLM **reflection pipeline** (Draft → Critique → Refine), persists state in a **Translation Memory** (TM), and reconstructs translated `.tex` files for compilation.
+LILT is a CLI for continuous LaTeX localization: AST parse → **segments** → **placeholders** → **Translation Memory** (TM) → LLM Draft → Critique → Refine → rebuilt `.tex`.
+It translates prose without sending raw structure to the model, and validates placeholders before a translation is accepted.
 
 ## Why LILT
 
-- **Integrity over linguistics** — placeholders and syntax are validated before a translation is accepted.
-- **Human priority** — `reviewed` / `approved` / `locked` segments are protected from automatic overwrite.
+- **Integrity over linguistics** — keep LaTeX compile-safe; validate placeholders and syntax first.
+- **Human priority** — `reviewed` / `approved` / `locked` are never auto-overwritten.
 - **TM as source of truth** — append-only JSONL under `.lilt/tm/`.
-- **Local-first LLM** — OpenAI-compatible endpoints (local or cloud) via staged Draft → Critique → Refine.
-- **Reproducibility** — stable segment IDs, persisted placeholder maps, checkpointed runs.
+- **Local-first LLM** — OpenAI-compatible endpoints (local or cloud) per stage.
+- **Reproducibility** — stable segment IDs, persisted placeholder maps, checkpoints.
 
 ## Quick start
 
 ```bash
-uv tool install git+https://github.com/aleaz/lilt
+# From a directory that contains your .tex sources:
+uv tool install git+https://github.com/aleaz/lilt   # see Getting started for uv sync / editable
 cd your-latex-project
 lilt project init
 lilt project configure .
@@ -25,19 +27,20 @@ lilt pipeline sync main.tex
 lilt pipeline translate --all
 mkdir -p i18n/build
 lilt pipeline build main main.tex i18n/build/main.tex
+# PDF: compile i18n/build/main.tex yourself (not a lilt command)
 ```
 
 Full install options and walkthrough: [Getting started](docs/getting-started.md).
 
 ## Documentation
 
-| Doc | For |
-|-----|-----|
-| [Documentation hub](docs/README.md) | All audiences and reading paths |
-| [Getting started](docs/getting-started.md) | Install and first pipeline |
-| [Concepts](docs/concepts.md) | Product model and features |
-| [CLI reference](docs/reference/cli.md) | Command surface |
-| [Architecture](docs/architecture/README.md) | Runtime SSOT (L1 guides) |
+| Doc | Use when |
+|-----|----------|
+| [Documentation hub](docs/README.md) | Hub / reading paths |
+| [Getting started](docs/getting-started.md) | Install & first pipeline |
+| [Concepts](docs/concepts.md) | Model & principles |
+| [CLI reference](docs/reference/cli.md) | Commands & flags |
+| [Architecture](docs/architecture/README.md) | Runtime SSOT (L1) |
 
 ## Contributing
 
