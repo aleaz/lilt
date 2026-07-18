@@ -88,11 +88,12 @@ Services consume `LiltConfig`, not raw `dict`.
 | Method | Use |
 |--------|-----|
 | `require_initialized()` | Workspace has `lilt.yaml` |
+| `require_namespace_file_exists(ns)` | TM JSONL file exists (does not load contents) |
 | `require_namespace(ns)` | TM JSONL exists and has at least one segment |
-| `require_path_exists(path)` | Path resolves inside workspace sandbox |
-| `require_tex_project(path)` | At least one `.tex` or existing TM |
 
 `translate`, `build`, `review`, and `get_stats` call `require_namespace` in the service layer.
+
+Path sandboxing is **not** a precondition guard: `WorkspaceContext.resolve_under_workspace()` raises `WorkspacePathError` when a path escapes the workspace.
 
 ## Data flow
 
@@ -136,7 +137,7 @@ IDs (see [02-persistence](02-persistence.md)) keep diffs reviewable.
 ### Environment and secrets
 
 - `load_dotenv` checks workspace `.env` then `.lilt/.env`.
-- `WorkspaceContext.resolve_under_workspace()` sandboxes file paths within the workspace.
+- `WorkspaceContext.resolve_under_workspace()` sandboxes file paths within the workspace (`WorkspacePathError` on escape).
 
 ## Decisions
 

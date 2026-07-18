@@ -110,7 +110,7 @@ Token budgeting uses measured prompts plus reserved output via `plan_token_budge
 | `ValidationError` | `validation/validators.py` | Structural check fails inside engine or build | Segment → `conflict`; build aborts before write |
 | `TranslationValidationError` | `lilt/exceptions.py` | Human edit (`pipeline edit` / `review`) fails validation | CLI message; TM unchanged |
 | `PreconditionError` | `lilt/exceptions.py` | Invalid segment state before LLM call | Propagates to CLI (not `error` / `conflict`) |
-| `EmptyLLMOutputError` | `llm/output_gate.py` | Provider returns empty text for non-trivial source | Fast-fail by default (`draft_empty_retries=1`); segment → `error` with detail in CLI progress (workflow and sequential); sequential continues the batch |
+| `EmptyLLMOutputError` | `lilt/exceptions.py` (re-exported from `llm/output_gate.py`) | Provider returns empty text for non-trivial source | Fast-fail by default (`draft_empty_retries=1`); segment → `error` with detail in CLI progress (workflow and sequential); sequential continues the batch |
 
 `ValidationError` is an internal signal caught by strategies and build code.
 `TranslationValidationError` is the user-facing domain error for interactive edits.
@@ -161,7 +161,8 @@ MQM tiers: L1 structural (validators), L2 terminology (lexical mask; validator d
 
 | Module / class | Responsibility |
 |----------------|----------------|
-| `core/translation/pipeline.py` | `TranslatorPipeline` orchestration |
+| `core/translation/strategy_factory.py` | `create_reflection_strategy` — product compose root for mode → strategy |
+| `core/translation/pipeline.py` | `TranslatorPipeline` — test/legacy wrapper that delegates to the factory |
 | `core/translation/base_strategy.py` | `BaseReflectionStrategy`, `ReflectionStrategy` protocol |
 | `core/translation/workflow_strategy.py` | `WorkflowReflectionStrategy` (breadth-first scheduling + `_execute_*` stage methods) |
 | `core/translation/sequential_strategy.py` | `SequentialReflectionStrategy` |
@@ -174,7 +175,7 @@ MQM tiers: L1 structural (validators), L2 terminology (lexical mask; validator d
 | `models/status_resolver.py` | Status CLI aliases |
 | `models/translation_mode.py` | `translation_mode` enum resolution |
 | `core/translation/segment_uow.py` | `process_segment` interrupt-safe UoW |
-| `llm/output_gate.py` | `validate_llm_output`, `EmptyLLMOutputError` |
+| `llm/output_gate.py` | `validate_llm_output` (re-exports `EmptyLLMOutputError`) |
 | `tm/checkpoint.py` | `TranslationCheckpoint` append + stage-end compaction |
 | `validation/validators.py` | `SegmentTranslationValidator`, `PlaceholderValidator`, `SyntaxValidator`, `BuildValidator` |
 | `services/pipeline_service.py` | `submit_human_translation` for human edits |

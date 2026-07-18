@@ -9,7 +9,6 @@ from lilt.exceptions import (
 from lilt.models.config import LiltConfig
 from lilt.tm.repository import TMRepository
 from lilt.utils.config_loader import load_lilt_config
-from lilt.utils.path_utils import path_is_under_workspace
 
 
 class WorkspacePreconditions:
@@ -49,18 +48,3 @@ class WorkspacePreconditions:
         segments = self.repo.load_namespace(namespace)
         if not segments:
             raise NamespaceNotFoundError(namespace)
-
-    def require_path_exists(self, path: str) -> str:
-        """Resolve path within workspace and ensure it exists."""
-        abs_path = os.path.abspath(
-            path if os.path.isabs(path) else os.path.join(self.workspace_dir, path)
-        )
-        real_path = os.path.realpath(abs_path)
-        real_workspace = os.path.realpath(self.workspace_dir)
-        if not path_is_under_workspace(real_path, real_workspace):
-            raise ValueError(
-                f"Security Error: Path '{path}' attempts to traverse outside the workspace sandbox."
-            )
-        if not os.path.exists(real_path):
-            raise FileNotFoundError(f"Path '{path}' not found.")
-        return abs_path

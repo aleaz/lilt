@@ -7,6 +7,7 @@ from .translation import (
     SequentialReflectionStrategy,
     TranslatorPipeline,
     WorkflowReflectionStrategy,
+    create_reflection_strategy,
 )
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "sync_file",
     "TranslatorPipeline",
     "WorkflowReflectionStrategy",
+    "create_reflection_strategy",
 ]

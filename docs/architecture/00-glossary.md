@@ -202,10 +202,10 @@ When code and prose disagree, **code wins**; update documentation to match.
 |---|---|
 | **Definition** | Core subsystem that runs reflection over TM segments |
 | **Responsibility** | Selects strategy, resolves context, validates, persists via checkpoint |
-| **Relationships** | `TranslatorPipeline` delegates to `ReflectionStrategy` implementations |
+| **Relationships** | `create_reflection_strategy` selects a `ReflectionStrategy` implementation |
 | **Code example** | `core/translation/` |
-| **Alternative names** | "translate module", `TranslatorPipeline` (orchestrator class) |
-| **Recommendation** | **Keep** as architectural name; document class vs subsystem |
+| **Alternative names** | "translate module"; `TranslatorPipeline` (legacy/test wrapper) |
+| **Recommendation** | **Keep** as architectural name; document factory vs wrapper |
 
 ### Pipeline Service
 
@@ -213,7 +213,7 @@ When code and prose disagree, **code wins**; update documentation to match.
 |---|---|
 | **Definition** | Application-layer facade for sync, translate, build, review, edit |
 | **Responsibility** | Workspace sandboxing, config loading, CLI delegation |
-| **Relationships** | Composes `TranslatorPipeline`, sync, build |
+| **Relationships** | Selects reflection strategy via `create_reflection_strategy`; sync, build |
 | **Code example** | `services/pipeline_service.py` |
 | **Alternative names** | "pipeline" |
 | **Recommendation** | **Keep** |
