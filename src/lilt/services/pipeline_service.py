@@ -169,6 +169,21 @@ class TranslationOrchestrator:
         active = [s for s in segments.values() if s.status != SegmentStatus.DEPRECATED]
         if not active:
             return "Done (no translatable segments; run sync on a .tex file first, or this fixture is parser-roundtrip only)"
+        mid_pipeline = [
+            s
+            for s in active
+            if s.status in (SegmentStatus.DRAFTED, SegmentStatus.CRITIQUED)
+            and not SegmentPolicy.is_immutable(s)
+        ]
+        if mid_pipeline:
+            # Sequential without --force skips drafted/critiqued; point at
+            # workflow stage resume (or --force sequential) instead of
+            # "already translated".
+            return (
+                "Done (idle: segments in drafted/critiqued; "
+                "resume with workflow --stage critique|refine, "
+                "or re-run sequential with --force)"
+            )
         eligible = [
             s
             for s in active

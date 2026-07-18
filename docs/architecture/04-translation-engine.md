@@ -70,6 +70,8 @@ flowchart LR
 
 Resolved by `TranslationMode.from_llm_config()`.
 
+Idle sequential (or empty batch) with leftover `drafted`/`critiqued` segments reports a resume hint (`workflow --stage critique|refine`, or sequential `--force`) instead of “already translated”.
+
 ### Reflection pipeline (`reflection_enabled: true`)
 
 ```text

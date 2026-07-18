@@ -27,6 +27,15 @@ def test_validate_counts_detects_missing_and_added() -> None:
         validate_counts(source, source + ' <macro id="2"/>')
 
 
+def test_validate_counts_reports_count_only_mismatch() -> None:
+    source = 'A <macro id="1"/> B <macro id="1"/>'
+    translated = 'A <macro id="1"/> B'
+    with pytest.raises(ValueError, match=r"Count mismatch.*expected 2, got 1") as exc:
+        validate_counts(source, translated)
+    assert "Missing" not in str(exc.value)
+    assert "hallucinated" not in str(exc.value)
+
+
 def test_normalize_llm_placeholders_repairs_malformed_id_close() -> None:
     broken = '<group_start id="8/>scikit-learn<group_end id="8/>'
     fixed = normalize_llm_placeholders(broken)

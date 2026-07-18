@@ -99,7 +99,8 @@ Implemented in `telemetry/reflection_cost.py` and exposed via `TMService.get_sta
 
 | Condition | Effect |
 |-----------|--------|
-| Missing telemetry.db | Created on first record |
+| Missing telemetry.db | Created on first record; summary → `None`, stage/workflow → `[]` |
+| Corrupt / unreadable DB | `TelemetryCorruptionError` from `get_global_summary`, `get_stage_breakdown`, and `get_workflow_summary` (CLI soft-empty only when the file is absent) |
 | DB locked | Rare; single-user CLI assumed |
 | Write / prompt-hash failure | Soft-fail: log warning; translation outcome unchanged |
 

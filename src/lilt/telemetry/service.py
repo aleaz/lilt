@@ -239,7 +239,9 @@ class TelemetryService:
                 return [dict(row) for row in cursor.fetchall()]
         except sqlite3.Error as e:
             logger.error(f"Failed to read stage breakdown: {e}")
-            return []
+            raise TelemetryCorruptionError(
+                f"Telemetry database is unreadable: {e}"
+            ) from e
 
     def get_workflow_summary(self, namespace: str | None = None) -> list[dict]:
         """Retrieves per-segment workflow metrics from the workflow_metrics view."""
@@ -272,4 +274,6 @@ class TelemetryService:
                 return [dict(row) for row in cursor.fetchall()]
         except sqlite3.Error as e:
             logger.error(f"Failed to read workflow summary: {e}")
-            return []
+            raise TelemetryCorruptionError(
+                f"Telemetry database is unreadable: {e}"
+            ) from e

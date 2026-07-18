@@ -3,6 +3,9 @@ from pathlib import Path
 from typing import Literal
 from unittest.mock import MagicMock
 
+import pytest
+
+from lilt.exceptions import TelemetryCorruptionError
 from lilt.llm.provider import LLMResponse
 from lilt.telemetry.models import InferenceRecord, TokenUsage
 from lilt.telemetry.service import TelemetryService
@@ -95,6 +98,24 @@ def test_get_global_summary_missing_db(tmp_path: Path):
     assert service.get_global_summary() is None
     assert service.get_stage_breakdown() == []
     assert service.get_workflow_summary() == []
+
+
+def test_corrupt_db_raises_on_summary_and_stage(tmp_path: Path):
+    db_path = tmp_path / "telemetry.db"
+    service = TelemetryService(db_path)
+    service.record_inference(_record("seg1", "intro", "draft"))
+    db_path.write_bytes(b"not a sqlite database")
+    for suffix in ("-wal", "-shm"):
+        side = Path(str(db_path) + suffix)
+        if side.exists():
+            side.unlink()
+
+    with pytest.raises(TelemetryCorruptionError, match="unreadable"):
+        service.get_global_summary()
+    with pytest.raises(TelemetryCorruptionError, match="unreadable"):
+        service.get_stage_breakdown()
+    with pytest.raises(TelemetryCorruptionError, match="unreadable"):
+        service.get_workflow_summary()
 
 
 def test_record_inference_from_llm_bypass(tmp_path: Path):

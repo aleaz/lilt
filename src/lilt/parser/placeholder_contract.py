@@ -1,6 +1,7 @@
 """Canonical placeholder token format shared by engine, validation, and build."""
 
 import re
+from collections import Counter
 
 PLACEHOLDER_RE = re.compile(r"<[a-z_]+ id=\"\d+\"/>", re.IGNORECASE)
 _MALFORMED_ID_CLOSE_RE = re.compile(
@@ -93,6 +94,15 @@ def validate_counts(source_text: str, translated_text: str) -> None:
         error_msg += f" Missing: {missing}."
     if added:
         error_msg += f" Added (hallucinated): {added}."
+    if not missing and not added:
+        src_counts = Counter(source_sorted)
+        tr_counts = Counter(translated_sorted)
+        diffs = [
+            f"{tok}: expected {src_counts[tok]}, got {tr_counts[tok]}"
+            for tok in sorted(src_counts.keys() | tr_counts.keys())
+            if src_counts[tok] != tr_counts[tok]
+        ]
+        error_msg += f" Count mismatch ({'; '.join(diffs)})."
     raise ValueError(error_msg)
 
 
