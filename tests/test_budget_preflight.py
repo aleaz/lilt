@@ -1,5 +1,7 @@
 """Tests for batch token-budget preflight."""
 
+import logging
+
 import pytest
 from pydantic import ValidationError
 
@@ -67,3 +69,41 @@ def test_preflight_ok_with_headroom() -> None:
     )
     assert len(plans) == 1
     assert plans[0].ok
+
+
+def test_preflight_warns_when_domain_context_empty(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    provider = OpenAIProvider(
+        api_key="test",
+        base_url="http://test",
+        model_context_limit=8192,
+        max_tokens=1024,
+        tokenizer_fudge=1.0,
+        domain_context=None,
+    )
+    with caplog.at_level(logging.WARNING, logger="lilt.llm.budget_preflight"):
+        preflight_translation_budget(
+            provider,
+            source_texts=["Hello"],
+            stages=["draft"],
+        )
+    assert any("domain_context is empty" in r.message for r in caplog.records)
+
+
+def test_preflight_no_domain_warn_when_set(caplog: pytest.LogCaptureFixture) -> None:
+    provider = OpenAIProvider(
+        api_key="test",
+        base_url="http://test",
+        model_context_limit=8192,
+        max_tokens=1024,
+        tokenizer_fudge=1.0,
+        domain_context="Operating systems textbook terminology.",
+    )
+    with caplog.at_level(logging.WARNING, logger="lilt.llm.budget_preflight"):
+        preflight_translation_budget(
+            provider,
+            source_texts=["Hello"],
+            stages=["draft"],
+        )
+    assert not any("domain_context is empty" in r.message for r in caplog.records)

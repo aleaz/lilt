@@ -88,7 +88,7 @@ TEXINPUTS=".:../../:" pdflatex main.tex
 
 Checklist for a careful first run on a real project (single writer, explicit config):
 
-1. **Config** — Ensure `.lilt/lilt.yaml` is non-empty and sets at least `project.source_lang` / `project.target_lang` and `llm.base_url` / `llm.model` for your endpoint. An empty file raises `ConfigurationError` (no silent Spanish/localhost defaults). Keep `model_context_limit > max_tokens`.
+1. **Config** — Ensure `.lilt/lilt.yaml` is non-empty and sets at least `project.source_lang` / `project.target_lang` and `llm.base_url` / `llm.model` for your endpoint. An empty file raises `ConfigurationError` (no silent Spanish/localhost defaults). Keep `model_context_limit > max_tokens`. Set `project.domain_context` before a serious run (highly recommended; empty triggers a translate warning but does not block).
 2. **One writer per namespace** — Do not run `sync` and `translate` in parallel on the same namespace (`NamespaceBusyError`).
 3. **Resume mid-pipeline** — After `--stage draft`, continue with `--stage critique` then `--stage refine`. In workflow mode, `--force` only expands **draft** eligibility; `--force --stage refine` alone will not invent `critiqued` artifacts.
 4. **Sequential vs workflow** — Sequential `--force` re-runs full D→C→R on non-immutable segments; workflow stage resume is safer for partial progress.

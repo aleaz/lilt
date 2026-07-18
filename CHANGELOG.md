@@ -16,6 +16,7 @@ There is no tagged release yet. Everything below is on `main` under
 - Architecture L1 guides under `docs/architecture/`.
 - CI via `make ci` (ruff, mypy, pytest).
 - Provider-agnostic `TokenBudgetPlanner`, measured-prompt `ContextPacker`, batch budget preflight, and config for `output_token_mode` / `tokenizer_fudge` / domain context caps.
+- Translate preflight warns once when `project.domain_context` is empty (still optional).
 
 ### Changed
 
@@ -23,6 +24,7 @@ There is no tagged release yet. Everything below is on `main` under
 - CLI consolidated (`project configure --dry-run`, `tm list`/`status`/`admin`).
 - Pre-test checklist in troubleshooting; L1 persistence documents that machine translate uses `SegmentPolicy` only (not `SegmentTransitionPolicy`).
 - Default `llm.max_tokens` is `4096` so new workspaces keep headroom under `model_context_limit` (`8192`).
+- Pre-test docs mark `project.domain_context` as highly recommended before serious runs.
 
 ### Fixed
 

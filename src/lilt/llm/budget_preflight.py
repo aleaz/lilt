@@ -36,6 +36,18 @@ def _plan_for_provider(
     return plan
 
 
+def _warn_if_domain_context_empty(llm: LLMProvider) -> None:
+    """Log once when project domain_context is unset (recommended, not required)."""
+    provider = _stage_provider(llm, "draft")
+    domain = getattr(provider, "domain_context", None)
+    if domain:
+        return
+    logger.warning(
+        "project.domain_context is empty. Setting it in lilt.yaml is highly "
+        "recommended for domain terminology; translation will continue without it."
+    )
+
+
 def preflight_translation_budget(
     llm: LLMProvider,
     *,
@@ -50,6 +62,8 @@ def preflight_translation_budget(
     """
     if not source_texts:
         return []
+
+    _warn_if_domain_context_empty(llm)
 
     worst = max(source_texts, key=lambda t: count_tokens(t))
     plans: list[BudgetPlan] = []
