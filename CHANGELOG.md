@@ -20,6 +20,7 @@ There is no tagged release yet. Everything below is on `main` under
 
 - Evaluation corpus tooling and harnesses live outside this repository.
 - CLI consolidated (`project configure --dry-run`, `tm list`/`status`/`admin`).
+- Pre-test checklist in troubleshooting; L1 persistence documents that machine translate uses `SegmentPolicy` only (not `SegmentTransitionPolicy`).
 
 ### Fixed
 
@@ -29,3 +30,6 @@ There is no tagged release yet. Everything below is on `main` under
 - Corrupt telemetry DB raises consistently on summary, stage breakdown, and workflow reads (missing file still soft-empty).
 - Idle translation with leftover `drafted`/`critiqued` segments hints workflow stage resume or sequential `--force`.
 - Placeholder validation reports count-only multiset mismatches (same tokens, different cardinality).
+- Idle `--stage critique|refine` with no eligible segments hints `--stage draft [--force]` first; CLI/docs clarify that workflow `--force` expands draft only.
+- Empty or null `lilt.yaml` raises `ConfigurationError` instead of applying silent full defaults.
+- Non-empty critique output that is not valid JSON with `requires_refine` marks the segment `conflict` and does not run refine.
