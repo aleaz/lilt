@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from lilt.models.segment import StoredSegment
-from lilt.utils.text_utils import has_linguistic_content
+from lilt.parser.linguistic import has_linguistic_content
 from lilt.utils.token_utils import count_tokens
 
 

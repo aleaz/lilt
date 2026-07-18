@@ -6,8 +6,8 @@ from typing import Any
 from lilt.llm.critique_parser import CritiqueParser
 from lilt.llm.provider import ContextData, LLMProvider, LLMResponse
 from lilt.models.critique import CritiqueResult
+from lilt.parser.linguistic import has_linguistic_content
 from lilt.parser.placeholder_contract import extract
-from lilt.utils.text_utils import has_linguistic_content
 from lilt.validation.validators import SegmentTranslationValidator, ValidationError
 
 REFINE_MAX_VALIDATION_RETRIES = 3

@@ -20,11 +20,11 @@ from pylatexenc.macrospec import MacroSpec, MacroStandardArgsParser, VerbatimArg
 
 from lilt.exceptions import ConfigurationError
 from lilt.parser.environment_stack import EnvironmentStack
+from lilt.parser.linguistic import has_linguistic_content
 from lilt.parser.mask_policy import apply_macro_policy
 from lilt.parser.placeholder_engine import PlaceholderEngine
 from lilt.utils.config_loader import load_lilt_config
 from lilt.utils.file_utils import read_text_file_resilient
-from lilt.utils.text_utils import has_linguistic_content
 
 if TYPE_CHECKING:
     from lilt.models.config import ParserConfig

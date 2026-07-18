@@ -1,4 +1,4 @@
-from lilt.utils.text_utils import has_linguistic_content
+from lilt.parser.linguistic import has_linguistic_content
 
 
 def test_has_linguistic_content():
