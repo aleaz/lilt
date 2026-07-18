@@ -1,7 +1,8 @@
 """Base infrastructure for reflection-based translation strategies."""
 
 import logging
-from typing import Literal
+from collections.abc import Iterable
+from typing import Any, Literal, Protocol
 
 from lilt.core.translation.context_resolver import ContextResolver
 from lilt.llm.provider import LLMProvider, LLMResponse
@@ -10,6 +11,21 @@ from lilt.tm.checkpoint import TranslationCheckpoint
 from lilt.tm.repository import TMRepository
 
 logger = logging.getLogger(__name__)
+
+
+class ReflectionStrategy(Protocol):
+    """Protocol for translation execution strategies."""
+
+    def run_iter(
+        self,
+        namespace: str,
+        force: bool = False,
+        segment_id: str | None = None,
+        status_filter: str | None = None,
+        stage: str | None = None,
+    ) -> Iterable[dict[str, Any]]:
+        """Execute the translation pipeline iteratively."""
+        ...
 
 
 class BaseReflectionStrategy:
