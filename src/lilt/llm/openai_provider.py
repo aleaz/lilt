@@ -172,10 +172,10 @@ class OpenAIProvider(BaseLLMProvider):
         self.model_context_limit: int = model_context_limit
         self.timeout: float = timeout
         self.output_token_mode = OutputTokenMode(output_token_mode)
-        self.reasoning_reserve = max(0, int(reasoning_reserve))
-        self.tokenizer_fudge = max(1.0, float(tokenizer_fudge))
-        self.chat_template_overhead = max(0, int(chat_template_overhead))
-        self.domain_context_max_tokens = max(0, int(domain_context_max_tokens))
+        self.reasoning_reserve = max(0, reasoning_reserve)
+        self.tokenizer_fudge = max(1.0, tokenizer_fudge)
+        self.chat_template_overhead = max(0, chat_template_overhead)
+        self.domain_context_max_tokens = max(0, domain_context_max_tokens)
 
         self.cost_plane = cost_plane or build_reflection_cost_plane(
             cost_profile=cost_profile,
@@ -272,7 +272,7 @@ class OpenAIProvider(BaseLLMProvider):
         source_tokens = count_tokens(source_text, model_name=self.model)
         return adaptive_output_tokens(
             source_tokens,
-            ceiling=int(self.max_tokens),
+            ceiling=self.max_tokens,
             policy=self._stage_policy(stage),
         )
 
@@ -389,9 +389,51 @@ class OpenAIProvider(BaseLLMProvider):
         )
         if effective_max is None:
             effective_max = 0
+        ceiling = self.max_tokens if self.max_tokens is not None else effective_max
+
+        starvation_bumped = False
+        while True:
+            self._assert_call_footprint(
+                total_prompt_tokens=total_prompt_tokens,
+                effective_max=effective_max,
+            )
+            try:
+                res = self._invoke_chat_completion(
+                    model=model,
+                    messages=messages,
+                    temperature=temperature,
+                    effective_max=effective_max,
+                    stage=stage,
+                )
+            except OutputTokenStarvationError:
+                if starvation_bumped or effective_max >= ceiling:
+                    raise
+                bump = max(self.reasoning_reserve, 512) if self.reasoning_reserve else 512
+                bumped = min(ceiling, max(effective_max * 2, effective_max + bump))
+                if bumped <= effective_max:
+                    raise
+                logger.warning(
+                    "Output token starvation stage=%s effective_max=%s; "
+                    "retrying once with effective_max=%s (retry_reason=reasoning_budget)",
+                    stage,
+                    effective_max,
+                    bumped,
+                )
+                effective_max = bumped
+                starvation_bumped = True
+                continue
+
+            if starvation_bumped:
+                res.retry_reason = "reasoning_budget"
+                res.attempt = max(res.attempt or 1, 2)
+            return res
+
+    def _assert_call_footprint(
+        self, *, total_prompt_tokens: int, effective_max: int
+    ) -> None:
         plan = plan_token_budget(
             context_limit=self.model_context_limit,
-            max_tokens=int(effective_max),
+            max_tokens=effective_max,
             fixed_prompt_tokens=total_prompt_tokens,
             output_token_mode=self.output_token_mode,
             reasoning_reserve=self.reasoning_reserve,
@@ -409,19 +451,27 @@ class OpenAIProvider(BaseLLMProvider):
                 f"raw_prompt_tokens={total_prompt_tokens}."
             )
 
+    def _invoke_chat_completion(
+        self,
+        *,
+        model: str,
+        messages: list[dict[str, str]],
+        temperature: float,
+        effective_max: int,
+        stage: str | None,
+    ) -> LLMResponse:
         kwargs: dict[str, Any] = {
             "model": model,
             "messages": messages,
             "temperature": temperature,
+            "stream": True,
         }
         if effective_max:
-            kwargs["max_tokens"] = int(effective_max)
+            kwargs["max_tokens"] = effective_max
 
         max_attempts = self.retry_config.get("max_attempts", 3)
         min_wait = self.retry_config.get("min_wait_seconds", 2)
         max_wait = self.retry_config.get("max_wait_seconds", 60)
-
-        kwargs["stream"] = True
         attempt_number = 1
 
         for attempt in Retrying(
@@ -436,13 +486,11 @@ class OpenAIProvider(BaseLLMProvider):
                 t0 = time.perf_counter()
                 ttft_ms = None
 
-                # Try to request usage in stream
                 kwargs["stream_options"] = {"include_usage": True}
                 try:
                     response = self.client.chat.completions.create(**kwargs)  # type: ignore
                 except TypeError:
-                    # Older openai clients might reject stream_options
-                    kwargs.pop("stream_options")
+                    kwargs.pop("stream_options", None)
                     response = self.client.chat.completions.create(**kwargs)  # type: ignore
 
                 chunks = []
@@ -467,13 +515,12 @@ class OpenAIProvider(BaseLLMProvider):
                     ttft_ms=ttft_ms,
                     attempt=attempt_number,
                     retry_reason="http" if attempt_number > 1 else None,
-                    effective_max_tokens=int(effective_max) if effective_max else None,
+                    effective_max_tokens=effective_max if effective_max else None,
                 )
 
                 if final_usage:
                     res.prompt_tokens = final_usage.prompt_tokens
                     res.completion_tokens = final_usage.completion_tokens
-                    # Handle token fallback locally if missing? We'll let the provider give it.
                     if (
                         hasattr(final_usage, "prompt_tokens_details")
                         and final_usage.prompt_tokens_details
@@ -491,7 +538,6 @@ class OpenAIProvider(BaseLLMProvider):
                     if not res.text and spent > 0:
                         raise OutputTokenStarvationError(spent, stage=stage)
                 else:
-                    # Fallback token estimation
                     res.prompt_tokens = sum(len(m["content"]) // 4 for m in messages)
                     res.completion_tokens = len(res.text) // 4
                     res.cached_tokens = 0

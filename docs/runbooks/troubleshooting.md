@@ -66,7 +66,7 @@ TEXINPUTS=".:../../:" pdflatex main.tex
 
 **Cause:** Measured prompt (fudged) + chat overhead + reserved completion exceeds `llm.model_context_limit`. Neighbors are packed only into leftover `neighbor_budget`.
 
-**Fix:** Ensure `model_context_limit > max_tokens` (and `+ reasoning_reserve` if `output_token_mode: split_budget`). Lower `max_tokens`, raise the context limit to match the serving stack, shorten `project.domain_context`, or reduce `llm.context_window`. Check preflight logs for `neighbor_budget` / stage mode.
+**Fix:** Ensure `model_context_limit > max_tokens` (and `+ reasoning_reserve` if `output_token_mode: split_budget`). For reflection with neighbor paragraphs, set `model_context_limit` to the real serving context (e.g. **32768**); do not leave 8192 if you already know neighbors need more. After sync, run `lilt tm budget <namespace>` (or heed the sync warning) for `recommend_min` / `min_full_neighbors`. Lower `max_tokens`, raise the context limit to match the serving stack, shorten `project.domain_context`, or reduce `llm.context_window` only after preflight at the real limit. Check preflight logs for `neighbor_budget` / stage mode.
 
 ### Empty content / reasoning starvation
 
@@ -74,7 +74,7 @@ TEXINPUTS=".:../../:" pdflatex main.tex
 
 **Cause:** The serving stack spent `max_tokens` on reasoning/thinking; LILT only reads `message.content`. Blind retries with the same budget do not help.
 
-**Fix:** Increase `llm.max_tokens`, set `output_token_mode: split_budget` with a positive `reasoning_reserve`, or disable thinking for that stage on the server. Do not rely on `draft_empty_retries` for this case.
+**Fix:** Increase `llm.max_tokens` and StagePolicy `output_floor`, set `output_token_mode: split_budget` with a positive `reasoning_reserve`, or disable thinking for that stage on the server. LILT retries once with a larger `effective_max_tokens` (`retry_reason=reasoning_budget`); do not rely on `draft_empty_retries` alone.
 
 ### Mix local + remote stages
 

@@ -21,7 +21,11 @@ There is no tagged release yet. Everything below is on `main` under
 
 ### Changed
 
-- Evaluation corpus tooling and harnesses live outside this repository.
+- Balanced StagePolicy output floors raised for thinking models (draft/refine 1536, critique 1024); one `reasoning_budget` retry on output starvation.
+- Docs recommend matching `model_context_limit` to serving n_ctx (e.g. 32768) for reflection with neighbor paragraphs; 8k is smoke/microbench only.
+- Placeholder ACCURACY checklist strengthened in system/critique/refine prompts.
+- `adaptive_output_tokens` never returns above `max_tokens` ceiling; strict profile uses thinking-safe floors.
+- Post-sync context capacity SSOT (`llm/context_recommend.py`): sync/translate soft warnings + `lilt tm budget`.
 - CLI consolidated (`project configure --dry-run`, `tm list`/`status`/`admin`).
 - Pre-test checklist in troubleshooting; L1 persistence documents that machine translate uses `SegmentPolicy` only (not `SegmentTransitionPolicy`).
 - Default `llm.max_tokens` is `4096` so new workspaces keep headroom under `model_context_limit` (`8192`).

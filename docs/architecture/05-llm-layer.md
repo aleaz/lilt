@@ -46,10 +46,10 @@ for telemetry.
 | `llm.timeout` | `600.0` | Request timeout |
 | `llm.draft_empty_retries` | `1` | Draft attempts on empty LLM output before segment `error` |
 | `llm.retry.max_attempts` | `3` | Tenacity attempts |
-| `llm.model_context_limit` | `8192` | Physical context window for budgeting |
-| `llm.max_tokens` | `4096` | Completion ceiling; effective request size is adaptive per stage/source |
+| `llm.model_context_limit` | `8192` | Physical context window for budgeting. For reflection + neighbor paragraphs on real papers, set this to match the serving stack (e.g. **32768**); `8192` is only adequate for smoke/microbench |
+| `llm.max_tokens` | `4096` | Completion ceiling; effective request size is adaptive per stage/source. Thinking models: use `split_budget` + `reasoning_reserve` and keep StagePolicy `output_floor` high enough that reasoning cannot starve `content` |
 | `llm.output_token_mode` | `shared_budget` | `shared_budget` or `split_budget` |
-| `llm.reasoning_reserve` | `0` | Extra reservation when `split_budget` |
+| `llm.reasoning_reserve` | `0` | Extra reservation when `split_budget` (required for thinking models so neighbor packing and call gate account for reasoning) |
 | `llm.tokenizer_fudge` | `1.1` | Multiplier on measured prompt tokens |
 | `llm.chat_template_overhead` | `48` | Chat-template / role overhead tokens |
 | `project.domain_context_max_tokens` | `512` | Cap for injected domain context |
@@ -143,6 +143,25 @@ Batch preflight (`budget_preflight`) runs before the segment loop: for each
 stage provider (router-aware), plan against the largest eligible source; abort
 with `BudgetPreflightError` if infeasible.
 
+**Real workloads:** previous/next paragraphs (StagePolicy `context_window`) plus
+system/domain/draft/critique consume substantial prompt tokens. Do not validate
+product reliability on an undersized `model_context_limit` (4k/8k) when the
+serving stack can load 16k–32k — raise the limit to match LM Studio / the
+endpoint, keep neighbor windows, and only shrink neighbors after preflight
+proves infeasible at the real limit.
+
+**Capacity recommendation (post-sync):** `recommend_context_limits` in
+`llm/context_recommend.py` inverts `plan_token_budget` using TM `source_text`
+and StagePolicy windows. Surfaces:
+
+- soft warnings after `pipeline sync` and at translate preflight when configured
+  limit is below steady-state neighbor capacity
+- `lilt tm budget <namespace>` for per-stage `min_bare` / `min_full_neighbors` /
+  `max_useful`
+
+Hard-fail remains only when fixed prompt + reserved output cannot fit (`min_bare`
+/ existing `BudgetPreflightError`). Neighbor shortfall is advisory only.
+
 **OpenAI-compatible / per-stage profiles:** `llm.stages.*` merges the same
 budget fields as top-level `llm` (`model_context_limit`, `max_tokens`,
 `output_token_mode`, …). Local + remote mix ⇒ distinct plans per stage.
@@ -166,7 +185,8 @@ budget fields as top-level `llm` (`model_context_limit`, `max_tokens`,
 | `llm/openai_provider.py` | OpenAI-compatible client, call gate, starvation check |
 | `llm/token_budget.py` | `plan_token_budget` / `call_footprint` / `BudgetPlan` |
 | `llm/context_packer.py` | `pack_neighbor_context` under `neighbor_budget` |
-| `llm/budget_preflight.py` | Batch infeasibility abort via provider `plan_budget` |
+| `llm/budget_preflight.py` | Batch infeasibility abort via provider `plan_budget`; soft capacity warn |
+| `llm/context_recommend.py` | Post-sync min/max `model_context_limit` from TM + StagePolicy |
 | `llm/router_provider.py` | Stage delegation, per-stage model resolution, `plan_budget` |
 | `llm/factory.py` | `ProviderFactory.create` (openai / OpenAI-compatible only) |
 | `llm/base_provider.py` | `stage_model_name` default, `plan_budget` stub, `translate_segment_iter` adapter |
@@ -183,7 +203,7 @@ budget fields as top-level `llm` (`model_context_limit`, `max_tokens`,
 | 401 / auth | No retry, `error` | Fix API key |
 | Neighbors over budget | Truncated neighbors (warning) | Reduce `context_window` or raise limit |
 | Prompt + reserved > limit | `ContextLengthExceededError` (no API call) | Lower `max_tokens` / raise `model_context_limit` |
-| Empty content + completion_tokens > 0 | `OutputTokenStarvationError` (no blind retry) | Raise `max_tokens` or `split_budget` + `reasoning_reserve` |
+| Empty content + completion_tokens > 0 | `OutputTokenStarvationError` after one `reasoning_budget` bump (up to `max_tokens`) | Raise floors/`max_tokens`, `split_budget` + `reasoning_reserve`, or disable thinking |
 | Preflight infeasible | `BudgetPreflightError` aborts batch | Same as reserved-headroom fixes |
 
 ## Known gaps

@@ -11,6 +11,7 @@ from lilt.exceptions import (
     BuildError,
     ConfigurationError,
 )
+from lilt.llm.budget_preflight import warn_context_capacity
 from lilt.llm.factory import ProviderFactory
 from lilt.models.segment import SegmentStatus, StoredSegment
 from lilt.models.segment_policy import SegmentPolicy
@@ -90,7 +91,31 @@ class SyncOrchestrator:
                     f"Original error: {exc}"
                 ) from exc
 
+        self._advise_context_capacity(results)
         return results
+
+    def _advise_context_capacity(self, results: list[SyncResult]) -> list[str]:
+        """Soft capacity warnings after TM is populated (non-blocking)."""
+        if not results:
+            return []
+        try:
+            config = self.ctx.preconditions.load_config()
+            plane = config.llm.build_cost_plane(durability=config.tm.durability)
+            llm_config = config.to_llm_factory_dict(workspace_dir=self.ctx.workspace_dir)
+            llm_config["reflection_enabled"] = plane.reflection_enabled
+            llm_config["cost_profile"] = plane.profile.value
+            llm = ProviderFactory.create(llm_config)
+        except Exception:
+            return []
+
+        messages: list[str] = []
+        for result in results:
+            if not result.active_segments:
+                continue
+            warns = warn_context_capacity(llm, result.active_segments)
+            result.capacity_warnings = warns
+            messages.extend(warns)
+        return messages
 
 
 class TranslationOrchestrator:

@@ -39,8 +39,8 @@ llm:
   temperature: 0.3          # Draft phase creativity
   reflection_temperature: 0.0   # Critique and Refine (deterministic)
   max_tokens: 4096          # Must be < model_context_limit
-  model_context_limit: 8192
-  output_token_mode: shared_budget  # or split_budget (+ reasoning_reserve)
+  model_context_limit: 8192 # Match serving n_ctx; use 32768 for real reflection+neighbors
+  output_token_mode: shared_budget  # or split_budget (+ reasoning_reserve) for thinking models
   reasoning_reserve: 0
   tokenizer_fudge: 1.1
   chat_template_overhead: 48

@@ -29,6 +29,20 @@ Example object {"nested": true} in reasoning.
     assert result.issues[0].category == "fluency"
 
 
+def test_parse_critique_with_unescaped_placeholder_quotes():
+    """Gemma residual: placeholder tags with \" inside JSON strings."""
+    text = (
+        '{"requires_refine": true, "issues": [{"category": "accuracy", '
+        '"description": "The placeholder <macro id="1"/> was incorrectly '
+        "translated/replaced with '10%' and the original tag was lost.\"}]}"
+    )
+    attempt = CritiqueParser.try_parse_detailed(text)
+    assert attempt.repaired is True
+    assert attempt.result is not None
+    assert attempt.result.requires_refine is True
+    assert attempt.result.issues[0].description.startswith("The placeholder")
+
+
 def test_try_parse_malformed_returns_none():
     assert CritiqueParser.try_parse("No JSON here, just prose.") is None
     with pytest.raises(ValueError, match="requires_refine"):

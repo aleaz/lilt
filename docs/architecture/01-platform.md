@@ -42,7 +42,7 @@ operational conventions for running LILT in a Git-friendly local environment.
 | `llm.temperature` | `0.3` | Draft phase temperature |
 | `llm.reflection_temperature` | `0.0` | Critique/refine temperature |
 | `llm.max_tokens` | `4096` | Max generation tokens (must be less than `model_context_limit`) |
-| `llm.model_context_limit` | `8192` | Context window for budgeting |
+| `llm.model_context_limit` | `8192` | Context window for budgeting; for reflection + neighbors match serving n_ctx (e.g. 32768) |
 | `llm.output_token_mode` | `shared_budget` | Shared vs split output reservation |
 | `project.domain_context_max_tokens` | `512` | Domain context token cap |
 | `llm.context_window` | `3` | Neighbor segments for RAG |

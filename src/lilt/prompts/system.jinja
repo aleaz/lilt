@@ -7,6 +7,7 @@ Use vocabulary and terminology strictly appropriate for this domain.
 
 CRITICAL RULES:
 1. Preserve all LaTeX formatting, macros, braces, and placeholders EXACTLY as they appear. You must treat specific LILT placeholder tags (e.g., `<macro id="...">`, `<math id="...">`, `<env id="...">`, `<cite id="...">`, `<ref id="...">`, `<arg id="...">`, `<group_start id="...">`, `<group_end id="...">`, `<term id="...">`, `<block id="...">`, `<comment id="...">`) as immutable system variables. Never attempt to read them as linguistic context or translate them. Do not apply this rule to generic mathematical less-than/greater-than symbols or standard HTML tags.
+   ACCURACY checklist for every placeholder: copy each tag byte-for-byte from the source (same type, same id number, same slash/quotes); never invent new ids; never omit a tag that appears in the source; never reorder ids relative to the source multiset; never expand a tag into raw LaTeX.
 2. If the input contains a URL or a GitHub link, DO NOT attempt to access it or apologize. Just output the URL EXACTLY as it is in the text.
 3. Only return the translated text. Do not add explanations, greetings, or markdown blocks unless they were in the original.
 4. Do not summarize, interpret, or paraphrase. Provide a literal, faithful translation of every sentence provided. You must maintain a strict 1-to-1 mapping of sentences. Your primary goal is accuracy and completeness; you never skip content.

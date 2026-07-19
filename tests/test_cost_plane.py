@@ -18,6 +18,9 @@ def test_balanced_defaults_cheap_critique_gate():
     assert plane.stages["critique"].context_window == 1
     assert plane.stages["critique"].prompt_profile == PromptProfile.JSON_GATE
     assert plane.stages["draft"].context_window == 3
+    assert plane.stages["draft"].output_floor == 1536
+    assert plane.stages["critique"].output_floor == 1024
+    assert plane.stages["refine"].output_floor == 1536
 
 
 def test_draft_only_disables_reflection():
@@ -50,6 +53,20 @@ def test_adaptive_output_tokens_caps_below_ceiling():
     assert adaptive_output_tokens(100, ceiling=4096, policy=policy) == 256
     assert adaptive_output_tokens(2000, ceiling=4096, policy=policy) == 3064
     assert adaptive_output_tokens(10000, ceiling=2048, policy=policy) == 2048
+
+
+def test_adaptive_output_tokens_floor_never_exceeds_ceiling():
+    from lilt.models.cost_plane import StagePolicy
+
+    policy = StagePolicy(output_multiplier=2.0, output_floor=1536, output_margin=0)
+    assert adaptive_output_tokens(10, ceiling=1024, policy=policy) == 1024
+
+
+def test_strict_thinking_safe_floors():
+    plane = build_reflection_cost_plane(cost_profile="strict")
+    assert plane.stages["draft"].output_floor == 1536
+    assert plane.stages["critique"].output_floor == 1024
+    assert plane.stages["refine"].output_floor == 1536
 
 
 def test_llm_config_aligns_cost_profile_with_reflection_flag():

@@ -2,6 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from lilt.llm.critique_parser import CritiqueParser
 from lilt.llm.provider import LLMResponse
 from lilt.llm.reflection_pass import (
     DENSE_SEGMENT_VALIDATION_RETRIES,
@@ -105,11 +106,44 @@ def test_run_draft_and_critique_delegate_to_provider(mock_llm):
     assert critique.parse_ok is True
 
 
-def test_run_reflection_pass_rejects_unparseable_critique(mock_llm):
-    mock_llm.generate_critique.return_value = LLMResponse(text="not json critique")
-    with pytest.raises(ValidationError, match="requires_refine"):
-        run_reflection_pass(mock_llm, "Hello")
+def test_run_reflection_pass_degrades_unparseable_critique_when_accuracy_ok(mock_llm):
+    mock_llm.generate_critique.side_effect = [
+        LLMResponse(text="not json critique"),
+        LLMResponse(text="still not json"),
+    ]
+    result = run_reflection_pass(mock_llm, "Hello")
+    assert result.text == "Hola draft"
+    assert result.meta["draft_accepted"] is True
+    assert result.critique is not None
+    assert result.critique.degraded is True
+    assert result.critique.requires_refine is False
     mock_llm.generate_refine.assert_not_called()
+    assert mock_llm.generate_critique.call_count == 2
+
+
+def test_run_critique_degrades_to_force_refine_on_bad_placeholders(mock_llm):
+    source = 'Hello <macro id="1"/>'
+    draft = "Hola sin tag"
+    mock_llm.generate_critique.side_effect = [
+        LLMResponse(
+            text=(
+                '{"requires_refine": true, "issues": [{"category": "accuracy", '
+                '"description": "Missing <macro id="1"/>"}]}'
+            )
+        ),
+        LLMResponse(text="still broken"),
+    ]
+    # First response is repairable via CritiqueParser; force a non-repairable path:
+    mock_llm.generate_critique.side_effect = [
+        LLMResponse(text="not json at all"),
+        LLMResponse(text="still not json"),
+    ]
+    critique = run_critique(mock_llm, draft, source)
+    assert critique.requires_refine is True
+    assert critique.degraded is True
+    assert critique.accuracy_forced is True
+    assert "macro#1" in critique.text
+    assert CritiqueParser.try_parse(critique.text) is not None
 
 
 def test_run_refine_rejects_unparseable_critique(mock_llm):

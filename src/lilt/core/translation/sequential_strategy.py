@@ -72,6 +72,7 @@ class SequentialReflectionStrategy(BaseReflectionStrategy):
             stages=["draft", "critique", "refine"]
             if self.llm.reflection_enabled
             else ["draft"],
+            segments=to_translate,
         )
 
         segment_to_idx = {s.id: idx for idx, s in enumerate(active_segments)}

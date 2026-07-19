@@ -6,9 +6,14 @@ import logging
 from typing import Any
 
 from lilt.exceptions import BudgetPreflightError
+from lilt.llm.context_recommend import (
+    advise_context_capacity,
+    format_capacity_warnings,
+)
 from lilt.llm.provider import LLMProvider
 from lilt.llm.router_provider import RouterLLMProvider
 from lilt.llm.token_budget import BudgetPlan
+from lilt.models.segment import StoredSegment
 from lilt.utils.token_utils import count_tokens
 
 logger = logging.getLogger(__name__)
@@ -50,17 +55,37 @@ def _warn_if_domain_context_empty(llm: LLMProvider) -> None:
     )
 
 
+def warn_context_capacity(
+    llm: LLMProvider,
+    segments: list[StoredSegment],
+    *,
+    stages: list[str] | None = None,
+) -> list[str]:
+    """Log soft capacity advisories (neighbors / undersized limit). Non-blocking."""
+    if not segments:
+        return []
+    report = advise_context_capacity(llm, segments, stages=stages)
+    messages = format_capacity_warnings(report)
+    for msg in messages:
+        logger.warning("%s", msg)
+    return messages
+
+
 def preflight_translation_budget(
     llm: LLMProvider,
     *,
     source_texts: list[str],
     stages: list[str],
+    segments: list[StoredSegment] | None = None,
 ) -> list[BudgetPlan]:
     """Abort early when the worst-case segment cannot fit fixed prompts + output.
 
     For each stage that will run, resolve the stage provider (router-aware),
     measure against the longest source text by token count, and raise
     :class:`BudgetPreflightError` if any plan is infeasible.
+
+    When ``segments`` is provided, also emits soft warnings if StagePolicy
+    neighbor windows will truncate under the configured context limit.
     """
     if not source_texts:
         return []
@@ -100,4 +125,7 @@ def preflight_translation_budget(
                 "Raise model_context_limit, lower max_tokens/reasoning_reserve, "
                 "or shorten domain_context / source segments."
             )
+
+    if segments:
+        warn_context_capacity(llm, segments, stages=stages)
     return plans

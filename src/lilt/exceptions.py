@@ -139,8 +139,10 @@ class OutputTokenStarvationError(LiltDomainError):
     """Raised when the model spent completion tokens but returned empty content.
 
     Typical with thinking/reasoning models when ``max_tokens`` is consumed by
-    internal reasoning and ``message.content`` stays empty. Do not blindly retry
-    with the same budget; raise ``max_tokens`` or switch ``output_token_mode``.
+    internal reasoning and ``message.content`` stays empty. The provider may
+    retry once with a larger ``effective_max_tokens`` (up to ``max_tokens``);
+    if content is still empty, raise ``max_tokens`` or use ``split_budget`` +
+    ``reasoning_reserve``, or disable thinking for that stage.
     """
 
     def __init__(self, completion_tokens: int, stage: str | None = None):

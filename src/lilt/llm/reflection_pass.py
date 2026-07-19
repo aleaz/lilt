@@ -3,11 +3,17 @@
 from dataclasses import dataclass
 from typing import Any
 
+from lilt.llm.critique_gate import (
+    CRITIQUE_JSON_RETRY_HINT,
+    CritiqueGateDecision,
+    merge_critique_with_accuracy,
+)
 from lilt.llm.critique_parser import CritiqueParser
 from lilt.llm.provider import ContextData, LLMProvider, LLMResponse
 from lilt.models.critique import CritiqueResult
 from lilt.parser.linguistic import has_linguistic_content
 from lilt.parser.placeholder_contract import extract
+from lilt.validation.accuracy_gate import AccuracyGate
 from lilt.validation.validators import SegmentTranslationValidator, ValidationError
 
 REFINE_MAX_VALIDATION_RETRIES = 3
@@ -39,6 +45,9 @@ class CritiquePassResult:
     parsed: CritiqueResult | None
     requires_refine: bool
     parse_ok: bool
+    parse_repaired: bool = False
+    degraded: bool = False
+    accuracy_forced: bool = False
 
 
 @dataclass
@@ -62,6 +71,19 @@ class ReflectionPassResult:
     bypass: bool = False
 
 
+def _decision_to_pass(decision: CritiqueGateDecision) -> CritiquePassResult:
+    return CritiquePassResult(
+        text=decision.text,
+        response=decision.response,
+        parsed=decision.parsed,
+        requires_refine=decision.requires_refine,
+        parse_ok=decision.parse_ok,
+        parse_repaired=decision.parse_repaired,
+        degraded=decision.degraded,
+        accuracy_forced=decision.accuracy_forced,
+    )
+
+
 def run_draft(
     llm: LLMProvider,
     source: str,
@@ -78,23 +100,40 @@ def run_critique(
     source: str,
     context: ContextData | None = None,
 ) -> CritiquePassResult:
-    """Evaluate a draft and parse structured critique output."""
+    """Evaluate a draft with AccuracyGate merge and JSON degrade policy."""
+    accuracy = AccuracyGate.evaluate(source, draft)
     response = llm.generate_critique(draft, source, context)
-    parsed = CritiqueParser.try_parse(response.text)
-    if parsed is None:
-        return CritiquePassResult(
-            text=response.text,
-            response=response,
-            parsed=None,
-            requires_refine=False,
-            parse_ok=False,
+    attempt = CritiqueParser.try_parse_detailed(response.text)
+
+    if attempt.result is None and response.text.strip():
+        retry = llm.generate_critique(draft + CRITIQUE_JSON_RETRY_HINT, source, context)
+        retry.attempt = max(response.attempt or 1, 1) + 1
+        retry.retry_reason = "critique_json"
+        retry_attempt = CritiqueParser.try_parse_detailed(retry.text)
+        response = retry
+        attempt = retry_attempt
+
+    if not response.text.strip():
+        return _decision_to_pass(
+            merge_critique_with_accuracy(
+                accuracy,
+                critique_text="",
+                response=response,
+                parsed=None,
+                parse_ok=False,
+                parse_repaired=False,
+            )
         )
-    return CritiquePassResult(
-        text=response.text,
-        response=response,
-        parsed=parsed,
-        requires_refine=parsed.requires_refine,
-        parse_ok=True,
+
+    return _decision_to_pass(
+        merge_critique_with_accuracy(
+            accuracy,
+            critique_text=response.text,
+            response=response,
+            parsed=attempt.result,
+            parse_ok=attempt.result is not None,
+            parse_repaired=attempt.repaired,
+        )
     )
 
 
@@ -110,10 +149,15 @@ def run_refine(
     """Produce a refined translation, optionally retrying on validation failure."""
     parsed_critique = CritiqueParser.try_parse(critique)
     if parsed_critique is None:
-        raise ValidationError(
-            "Critique output is not valid JSON with a boolean requires_refine field; "
-            "refine aborted"
-        )
+        accuracy = AccuracyGate.evaluate(source, draft)
+        if not accuracy.ok:
+            critique = accuracy.to_critique_json()
+            parsed_critique = CritiqueParser.try_parse(critique)
+        if parsed_critique is None:
+            raise ValidationError(
+                "Critique output is not valid JSON with a boolean requires_refine field; "
+                "refine aborted"
+            )
     if not parsed_critique.requires_refine:
         normalized_draft = SegmentTranslationValidator.normalize_translation(
             source, draft
@@ -186,25 +230,6 @@ def run_reflection_pass(
         )
 
     critique_result = run_critique(llm, draft_text, source, context)
-    if not critique_result.parse_ok:
-        if not critique_result.text.strip():
-            normalized_draft = SegmentTranslationValidator.normalize_translation(
-                source, draft_text
-            )
-            return ReflectionPassResult(
-                text=normalized_draft,
-                meta={
-                    "used": True,
-                    "draft_accepted": True,
-                    "critique_feedback": "",
-                },
-                draft=draft_result,
-                critique=critique_result,
-            )
-        raise ValidationError(
-            "Critique output is not valid JSON with a boolean requires_refine field; "
-            "refine aborted"
-        )
     if not critique_result.requires_refine:
         normalized_draft = SegmentTranslationValidator.normalize_translation(
             source, draft_text
@@ -215,6 +240,8 @@ def run_reflection_pass(
                 "used": True,
                 "draft_accepted": True,
                 "critique_feedback": critique_result.text,
+                "critique_degraded": critique_result.degraded,
+                "accuracy_forced": critique_result.accuracy_forced,
             },
             draft=draft_result,
             critique=critique_result,
@@ -258,6 +285,8 @@ def run_reflection_pass(
             "used": True,
             "draft_accepted": False,
             "critique_feedback": critique_result.text,
+            "critique_degraded": critique_result.degraded,
+            "accuracy_forced": critique_result.accuracy_forced,
         },
         draft=draft_result,
         critique=critique_result,

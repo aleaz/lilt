@@ -7,6 +7,11 @@ from lilt.exceptions import (
     TMCorruptionError,
     TMImportError,
 )
+from lilt.llm.context_recommend import (
+    ContextLimitRecommendation,
+    recommend_context_limits,
+)
+from lilt.llm.factory import ProviderFactory
 from lilt.models.segment import FileFormat, SegmentStatus, StoredSegment
 from lilt.models.segment_transition import SegmentTransitionPolicy
 from lilt.models.status_resolver import StatusResolver
@@ -164,6 +169,20 @@ class TMService:
         )
         return stats
 
+    def context_budget(self, namespace: str) -> ContextLimitRecommendation:
+        """Recommend model_context_limit capacity for a populated namespace."""
+        report = self.repo.load_namespace_report(namespace)
+        ordered = report.ordered_segments
+        if not ordered:
+            ordered = list(self._get_namespace_segments(namespace).values())
+        config = self.ctx.preconditions.load_config()
+        plane = config.llm.build_cost_plane(durability=config.tm.durability)
+        llm_config = config.to_llm_factory_dict(workspace_dir=self.workspace_dir)
+        llm_config["reflection_enabled"] = plane.reflection_enabled
+        llm_config["cost_profile"] = plane.profile.value
+        llm = ProviderFactory.create(llm_config)
+        return recommend_context_limits(ordered, llm)
+
     def _estimate_reflection_tokens(self, segments: list[StoredSegment]) -> int:
         try:
             config = self.ctx.preconditions.load_config().model_dump()
@@ -216,7 +235,7 @@ class TMService:
         """Return ``(total, pending, reflection)`` USD estimates from config price."""
         try:
             config = self.ctx.preconditions.load_config()
-            cost_per_million = float(config.llm.token_price_per_million)
+            cost_per_million = config.llm.token_price_per_million
         except Exception:
             cost_per_million = 5.0
         scale = cost_per_million / 1_000_000

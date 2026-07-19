@@ -8,6 +8,7 @@ from lilt.llm.openai_provider import (
     _is_retryable,
 )
 from lilt.llm.output_gate import EmptyLLMOutputError
+from lilt.models.cost_plane import build_reflection_cost_plane
 
 
 # Mock classes for OpenAI responses
@@ -273,7 +274,7 @@ def test_openai_provider_dynamic_token_accounting():
     provider = OpenAIProvider(
         api_key="test",
         base_url="http://test",
-        model_context_limit=1500,
+        model_context_limit=1540,
         max_tokens=900,
         tokenizer_fudge=1.0,
         chat_template_overhead=0,
@@ -438,3 +439,54 @@ def test_output_token_starvation_raises(mocker):
 
     with pytest.raises(OutputTokenStarvationError, match="completion token"):
         provider.generate_draft("Hello world")
+
+
+def test_output_token_starvation_retries_with_reasoning_budget(mocker):
+    class Usage:
+        prompt_tokens = 10
+        completion_tokens = 128
+        prompt_tokens_details = None
+        completion_tokens_details = None
+
+    class StarvingChunk:
+        def __init__(self):
+            self.choices = [MockChunkChoice(MockDelta(None))]
+            self.usage = Usage()
+
+    class OkChunk:
+        def __init__(self):
+            self.choices = [MockChunkChoice(MockDelta("Hola"))]
+            self.usage = Usage()
+
+    class StarvingResponse:
+        def __iter__(self):
+            yield StarvingChunk()
+
+    class OkResponse:
+        def __iter__(self):
+            yield OkChunk()
+
+    provider = OpenAIProvider(
+        api_key="test",
+        base_url="http://test",
+        model_context_limit=8192,
+        max_tokens=2048,
+        cost_plane=build_reflection_cost_plane(
+            cost_profile="balanced",
+            stage_overrides={"draft": {"output_floor": 256}},
+        ),
+    )
+    create = mocker.patch.object(
+        provider.client.chat.completions,
+        "create",
+        side_effect=[StarvingResponse(), OkResponse()],
+    )
+
+    res = provider.generate_draft("Hello world")
+    assert res.text == "Hola"
+    assert res.retry_reason == "reasoning_budget"
+    assert create.call_count == 2
+    first_max = create.call_args_list[0].kwargs.get("max_tokens")
+    second_max = create.call_args_list[1].kwargs.get("max_tokens")
+    assert first_max is not None and second_max is not None
+    assert second_max > first_max

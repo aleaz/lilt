@@ -62,6 +62,12 @@ def sync(
                 str(result.deprecated_marked),
             )
         console.print(table)
+        seen_warn: set[str] = set()
+        for result in results:
+            for msg in result.capacity_warnings:
+                if msg not in seen_warn:
+                    seen_warn.add(msg)
+                    print_warning(msg)
         if len(results) > 1:
             print_info(f"Auto-discovered and synced {len(results)} dependency files.")
     except (FileNotFoundError, ValueError) as e:

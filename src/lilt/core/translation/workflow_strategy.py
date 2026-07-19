@@ -60,21 +60,23 @@ class WorkflowReflectionStrategy(BaseReflectionStrategy):
         if segments:
             if segment_id:
                 resolved = resolve_unique_segment(segments, segment_id, namespace)
-                eligible_sources = [resolved.source_text]
+                eligible = [resolved]
             else:
-                eligible_sources = [
-                    s.source_text
+                eligible = [
+                    s
                     for s in segments.values()
                     if any(
                         SegmentPolicy.is_eligible_for_workflow_stage(s, st, force)
                         for st in stages_to_run
                     )
                 ]
+            eligible_sources = [s.source_text for s in eligible]
             if eligible_sources:
                 preflight_translation_budget(
                     self.llm,
                     source_texts=eligible_sources,
                     stages=stages_to_run,
+                    segments=eligible,
                 )
 
         for current_stage in stages_to_run:
@@ -286,35 +288,41 @@ class WorkflowReflectionStrategy(BaseReflectionStrategy):
             raise PreconditionError(
                 f"No draft available for critique on segment {seg.id}"
             )
+        model_name = self._stage_model("critique")
         try:
             critique_result = run_critique(
                 self.llm, draft_text, seg.source_text, context
             )
         except EmptyLLMOutputError:
             logger.warning(
-                "Empty critique for segment %s; accepting draft without refine.",
+                "Empty critique for segment %s; degrading via AccuracyGate.",
                 seg.id,
             )
-            self._apply_critique_bypass(seg, namespace, self._stage_model("critique"))
+            from lilt.llm.critique_gate import merge_critique_with_accuracy
+            from lilt.validation.accuracy_gate import AccuracyGate
+
+            empty = LLMResponse(text="", duration_ms=0)
+            decision = merge_critique_with_accuracy(
+                AccuracyGate.evaluate(seg.source_text, draft_text),
+                critique_text="",
+                response=empty,
+                parsed=None,
+                parse_ok=False,
+            )
+            seg.critique = StageArtifact(content=decision.text, model=model_name)
+            seg.reflection_meta = ReflectionMeta(
+                used=True,
+                draft_accepted=not decision.requires_refine,
+                critique_feedback=decision.text,
+            )
+            seg.status = SegmentStatus.CRITIQUED
+            self._queue_telemetry(
+                namespace, seg.id, "critique", decision.response, model_name
+            )
             return
 
+        # run_critique merges AccuracyGate and degrades bad JSON — never conflict here.
         critique_text = critique_result.text
-        model_name = self._stage_model("critique")
-        if not critique_text.strip():
-            logger.warning(
-                "Empty critique text for segment %s; accepting draft without refine.",
-                seg.id,
-            )
-            self._apply_critique_bypass(seg, namespace, model_name)
-            return
-
-        if not critique_result.parse_ok:
-            seg.critique = StageArtifact(content=critique_text, model=model_name)
-            raise ValidationError(
-                "Critique output is not valid JSON with a boolean requires_refine field",
-                attempt_text=draft_text,
-            )
-
         seg.critique = StageArtifact(content=critique_text, model=model_name)
         seg.reflection_meta = ReflectionMeta(
             used=True,

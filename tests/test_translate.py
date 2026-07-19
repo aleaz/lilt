@@ -7,6 +7,7 @@ from lilt.llm.base_provider import BaseLLMProvider
 from lilt.llm.output_gate import EmptyLLMOutputError
 from lilt.llm.provider import LLMResponse
 from lilt.llm.reflection_pass import REFINE_MAX_VALIDATION_RETRIES
+from lilt.llm.token_budget import BudgetPlan
 from lilt.models.segment import SegmentStatus, StageArtifact, StoredSegment
 from lilt.models.translation_mode import TranslationMode
 from lilt.validation.validators import ValidationError
@@ -18,6 +19,20 @@ _VALIDATOR = (
 
 def _identity_normalize(_source: str, translated: str) -> str:
     return translated
+
+
+def _fake_budget_plan(**_kwargs) -> BudgetPlan:
+    return BudgetPlan(
+        context_limit=8192,
+        reserved_output=1024,
+        fixed_prompt_tokens=100,
+        neighbor_budget=6000,
+        safety_margin=64,
+        chat_template_overhead=0,
+        fudge=1.0,
+        ok=True,
+        infeasible=False,
+    )
 
 
 @pytest.fixture
@@ -34,6 +49,8 @@ def mock_llm():
     llm.draft_model = "test-model"
     llm.critique_model = "test-model"
     llm.refine_model = "test-model"
+    llm.model_context_limit = 8192
+    llm.max_tokens = 1024
     llm.generate_draft.return_value = LLMResponse(text="Hola draft")
     llm.generate_critique.return_value = LLMResponse(
         text='{"requires_refine": false, "issues": []}'
@@ -41,6 +58,7 @@ def mock_llm():
     llm.generate_refine.return_value = LLMResponse(text="Hola refined")
     llm.get_prompt_version.return_value = "draft:test0000"
     llm.stage_model_name.return_value = "test-model"
+    llm.plan_budget.side_effect = _fake_budget_plan
     return llm
 
 
@@ -111,7 +129,7 @@ def test_workflow_empty_critique_bypasses_refine(mock_tm, mock_llm):
     seg1 = StoredSegment(
         id="title-seg",
         source_hash="a",
-        source_text="\\title{Attention Is All You Need}",
+        source_text="Hello",
         status=SegmentStatus.GENERATED,
         translation="",
     )
@@ -497,6 +515,9 @@ class _RetryFakeLLM(BaseLLMProvider):
     def reflection_enabled(self) -> bool:
         return True
 
+    def plan_budget(self, *, stage, source_text, draft_text="", critique_text=""):
+        return _fake_budget_plan()
+
     def generate_draft(self, text: str, context=None) -> LLMResponse:
         return LLMResponse(text="Hola draft")
 
@@ -619,7 +640,8 @@ def test_workflow_refine_force_skips_generated_without_artifacts(mock_tm, mock_l
     mock_llm.generate_refine.assert_not_called()
 
 
-def test_workflow_critique_garbage_marks_conflict_without_refine(mock_tm, mock_llm):
+def test_workflow_critique_garbage_degrades_without_conflict(mock_tm, mock_llm):
+    """Malformed critique JSON must not mark conflict when AccuracyGate is ok."""
     seg1 = StoredSegment(
         id="1",
         source_hash="a",
@@ -641,5 +663,7 @@ def test_workflow_critique_garbage_marks_conflict_without_refine(mock_tm, mock_l
 
     list(strategy.run_iter("test_ns", stage="critique"))
 
-    assert seg1.status == SegmentStatus.CONFLICT
+    assert seg1.status == SegmentStatus.CRITIQUED
+    assert seg1.critique is not None
+    assert '"requires_refine": false' in seg1.critique.content
     mock_llm.generate_refine.assert_not_called()

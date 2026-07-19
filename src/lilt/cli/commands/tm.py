@@ -7,11 +7,13 @@ from lilt.cli.ui import (
     console,
     create_panel,
     create_standard_table,
+    print_error,
     print_info,
     print_success,
     print_warning,
 )
 from lilt.exceptions import TMCorruptionError
+from lilt.llm.context_recommend import format_capacity_warnings
 from lilt.models.segment import SegmentStatus
 from lilt.services.tm_service import TMService
 from lilt.utils.token_utils import count_tokens
@@ -204,6 +206,49 @@ def status(
     """Show translation progress and statistics (dashboard)."""
     service = _tm_service(ctx)
     _show_status(service, namespace, all_namespaces)
+
+
+@app.command()
+def budget(
+    ctx: typer.Context,
+    namespace: str = typer.Argument(..., help="TM namespace to size context for"),
+) -> None:
+    """Recommend model_context_limit from post-sync TM + StagePolicy windows."""
+    service = _tm_service(ctx)
+    try:
+        report = service.context_budget(namespace)
+    except Exception as exc:
+        print_error(str(exc))
+        raise typer.Exit(code=1) from None
+
+    table = create_standard_table()
+    table.add_column("Stage", style="cyan")
+    table.add_column("min_bare", justify="right")
+    table.add_column("min_full_neighbors", justify="right")
+    table.add_column("max_useful", justify="right")
+    table.add_column("worst_segment", style="dim")
+    for stage_name in ("draft", "critique", "refine"):
+        stage = report.stages.get(stage_name)
+        if stage is None:
+            continue
+        table.add_row(
+            stage.stage,
+            str(stage.min_bare),
+            str(stage.min_full_neighbors),
+            str(stage.max_useful),
+            (stage.worst_segment_id[:8] + "…")
+            if len(stage.worst_segment_id) > 8
+            else stage.worst_segment_id,
+        )
+    console.print(create_panel(table, title=f"Context capacity [{namespace}]"))
+    print_info(
+        f"configured={report.configured_limit}  "
+        f"recommend_min={report.recommend_min}  "
+        f"recommend_max_useful={report.recommend_max_useful}  "
+        f"verdict={report.verdict}"
+    )
+    for msg in format_capacity_warnings(report):
+        print_warning(msg)
 
 
 def _show_status(
