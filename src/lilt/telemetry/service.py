@@ -63,7 +63,8 @@ class TelemetryService:
                         retry_reason TEXT,
                         pack_context_ms INTEGER,
                         checkpoint_ms INTEGER,
-                        effective_max_tokens INTEGER
+                        effective_max_tokens INTEGER,
+                        reasoning_tokens INTEGER DEFAULT 0
                     )
                 """
             )
@@ -76,6 +77,7 @@ class TelemetryService:
                     "pack_context_ms": "INTEGER",
                     "checkpoint_ms": "INTEGER",
                     "effective_max_tokens": "INTEGER",
+                    "reasoning_tokens": "INTEGER DEFAULT 0",
                 },
             )
 
@@ -137,8 +139,8 @@ class TelemetryService:
                         started_at, finished_at, duration_ms, ttft_ms,
                         prompt_tokens, completion_tokens, cached_tokens, usage_source, finish_reason,
                         is_heuristic_simple, attempt, retry_reason,
-                        pack_context_ms, checkpoint_ms, effective_max_tokens
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        pack_context_ms, checkpoint_ms, effective_max_tokens, reasoning_tokens
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         record.id or str(uuid.uuid4()),
@@ -163,6 +165,7 @@ class TelemetryService:
                         record.pack_context_ms,
                         record.checkpoint_ms,
                         record.effective_max_tokens,
+                        record.usage.reasoning_tokens,
                     ),
                 )
             return TelemetryResult(success=True)
@@ -203,6 +206,7 @@ class TelemetryService:
                     prompt_tokens=res.prompt_tokens,
                     completion_tokens=res.completion_tokens,
                     cached_tokens=res.cached_tokens,
+                    reasoning_tokens=getattr(res, "reasoning_tokens", 0) or 0,
                 ),
                 usage_source="api",
                 finish_reason=finish_reason,

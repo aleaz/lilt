@@ -74,7 +74,7 @@ TEXINPUTS=".:../../:" pdflatex main.tex
 
 **Cause:** The serving stack spent `max_tokens` on reasoning/thinking; LILT only reads `message.content`. Blind retries with the same budget do not help.
 
-**Fix:** Increase `llm.max_tokens` and StagePolicy `output_floor`, set `output_token_mode: split_budget` with a positive `reasoning_reserve`, or disable thinking for that stage on the server. LILT retries once with a larger `effective_max_tokens` (`retry_reason=reasoning_budget`); do not rely on `draft_empty_retries` alone.
+**Fix:** Increase `llm.max_tokens` and StagePolicy `output_floor`, set `output_token_mode: split_budget` with a positive `reasoning_reserve`, set `stage_policies.<stage>.thinking: off` (default), or disable thinking on the server (e.g. LM Studio Enable Thinking Off + reload). LILT retries once with `thinking=off` when the stage policy allowed thinking, then once with a larger `effective_max_tokens` (`retry_reason=reasoning_budget`); do not rely on `draft_empty_retries` alone. See [performance.md](performance.md) for tiers and smoke checks.
 
 ### Mix local + remote stages
 

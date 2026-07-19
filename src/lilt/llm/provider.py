@@ -19,6 +19,7 @@ class LLMResponse:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     cached_tokens: int = 0
+    reasoning_tokens: int = 0
     duration_ms: int = 0
     ttft_ms: int | None = None
     started_at: datetime = field(default_factory=datetime.now)

@@ -11,6 +11,26 @@ from lilt.models.cost_plane import (
 from lilt.models.config import LLMConfig, LiltConfig
 
 
+def test_balanced_defaults_thinking_off():
+    plane = build_reflection_cost_plane(cost_profile="balanced")
+    from lilt.models.cost_plane import ThinkingMode
+
+    assert plane.stages["draft"].thinking == ThinkingMode.OFF
+    assert plane.stages["critique"].thinking == ThinkingMode.OFF
+    assert plane.stages["refine"].thinking == ThinkingMode.OFF
+
+
+def test_stage_policy_thinking_override():
+    plane = build_reflection_cost_plane(
+        cost_profile="balanced",
+        stage_overrides={"draft": {"thinking": "on"}},
+    )
+    from lilt.models.cost_plane import ThinkingMode
+
+    assert plane.stages["draft"].thinking == ThinkingMode.ON
+    assert plane.stages["critique"].thinking == ThinkingMode.OFF
+
+
 def test_balanced_defaults_cheap_critique_gate():
     plane = build_reflection_cost_plane(cost_profile="balanced")
     assert plane.profile == CostProfileName.BALANCED

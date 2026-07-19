@@ -47,7 +47,8 @@ for telemetry.
 | `llm.draft_empty_retries` | `1` | Draft attempts on empty LLM output before segment `error` |
 | `llm.retry.max_attempts` | `3` | Tenacity attempts |
 | `llm.model_context_limit` | `8192` | Physical context window for budgeting. For reflection + neighbor paragraphs on real papers, set this to match the serving stack (e.g. **32768**); `8192` is only adequate for smoke/microbench |
-| `llm.max_tokens` | `4096` | Completion ceiling; effective request size is adaptive per stage/source. Thinking models: use `split_budget` + `reasoning_reserve` and keep StagePolicy `output_floor` high enough that reasoning cannot starve `content` |
+| `llm.max_tokens` | `4096` | Completion ceiling; effective request size is adaptive per stage/source. Thinking models: use `split_budget` + `reasoning_reserve` and keep StagePolicy `output_floor` high enough that reasoning cannot starve `content`. Prefer `stage_policies.*.thinking: off` (default) for a best-effort `reasoning_effort=none` hint |
+| `llm.stage_policies.*.thinking` | `off` | `off` / `on` / `minimal` — server thinking hint per stage. Distinct from `prompt_profile: reasoned_gate` (critique prompt only) |
 | `llm.output_token_mode` | `shared_budget` | `shared_budget` or `split_budget` |
 | `llm.reasoning_reserve` | `0` | Extra reservation when `split_budget` (required for thinking models so neighbor packing and call gate account for reasoning) |
 | `llm.tokenizer_fudge` | `1.1` | Multiplier on measured prompt tokens |
@@ -203,7 +204,7 @@ budget fields as top-level `llm` (`model_context_limit`, `max_tokens`,
 | 401 / auth | No retry, `error` | Fix API key |
 | Neighbors over budget | Truncated neighbors (warning) | Reduce `context_window` or raise limit |
 | Prompt + reserved > limit | `ContextLengthExceededError` (no API call) | Lower `max_tokens` / raise `model_context_limit` |
-| Empty content + completion_tokens > 0 | `OutputTokenStarvationError` after one `reasoning_budget` bump (up to `max_tokens`) | Raise floors/`max_tokens`, `split_budget` + `reasoning_reserve`, or disable thinking |
+| Empty content + completion_tokens > 0 | `OutputTokenStarvationError` after retry with `thinking=off` (if stage thinking was on) and/or one `reasoning_budget` bump (up to `max_tokens`) | Set `stage_policies.*.thinking: off`, raise floors/`max_tokens`, `split_budget` + `reasoning_reserve`, or disable thinking on the server |
 | Preflight infeasible | `BudgetPreflightError` aborts batch | Same as reserved-headroom fixes |
 
 ## Known gaps

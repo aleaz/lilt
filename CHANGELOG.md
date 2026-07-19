@@ -18,14 +18,18 @@ There is no tagged release yet. Everything below is on `main` under
 - Provider-agnostic `plan_token_budget` / `pack_neighbor_context`, batch budget preflight, and config for `output_token_mode` / `tokenizer_fudge` / domain context caps.
 - Translate preflight warns once when `project.domain_context` is empty (still optional).
 - `plan_budget` on the LLM provider port; progress event TypedDicts; linguistic eligibility in `parser.linguistic`.
+- Dual-gate critique: deterministic `AccuracyGate` + resilient critique JSON parse/degrade (placeholder quotes).
+- Post-sync context capacity SSOT (`llm/context_recommend.py`) + `lilt tm budget`.
+- Per-stage `StagePolicy.thinking` (`off`/`on`/`minimal`) with best-effort `reasoning_effort` request hints; starvation retry can force thinking off.
+- Telemetry persists `reasoning_tokens` when the provider reports them.
 
 ### Changed
 
-- Balanced StagePolicy output floors raised for thinking models (draft/refine 1536, critique 1024); one `reasoning_budget` retry on output starvation.
+- Balanced StagePolicy output floors raised for thinking models (draft/refine 1536, critique 1024); starvation retries: optional `thinking_disabled` then `reasoning_budget` bump.
+- Docs: capacity tiers (incl. 24GB+MoE), content vs server-thinking contract, `reasoned_gate` ≠ Enable Thinking; runbook performance expanded.
 - Docs recommend matching `model_context_limit` to serving n_ctx (e.g. 32768) for reflection with neighbor paragraphs; 8k is smoke/microbench only.
-- Placeholder ACCURACY checklist strengthened in system/critique/refine prompts.
+- Placeholder ACCURACY checklist strengthened in system/critique/refine prompts; critique prompt focuses on editorial axes (AccuracyGate owns placeholders).
 - `adaptive_output_tokens` never returns above `max_tokens` ceiling; strict profile uses thinking-safe floors.
-- Post-sync context capacity SSOT (`llm/context_recommend.py`): sync/translate soft warnings + `lilt tm budget`.
 - CLI consolidated (`project configure --dry-run`, `tm list`/`status`/`admin`).
 - Pre-test checklist in troubleshooting; L1 persistence documents that machine translate uses `SegmentPolicy` only (not `SegmentTransitionPolicy`).
 - Default `llm.max_tokens` is `4096` so new workspaces keep headroom under `model_context_limit` (`8192`).

@@ -40,6 +40,7 @@ from lilt.models.cost_plane import (
     PromptProfile,
     ReflectionCostPlane,
     StagePolicy,
+    ThinkingMode,
     adaptive_output_tokens,
     build_reflection_cost_plane,
 )
@@ -63,6 +64,20 @@ def _is_retryable(exc: BaseException) -> bool:
     if isinstance(exc, _RETRYABLE_EXCEPTIONS):
         return True
     return isinstance(exc, APIStatusError) and exc.status_code >= 500
+
+
+def _is_unsupported_param_error(exc: BaseException) -> bool:
+    """Return True when the server rejects an unknown request field."""
+    text = str(exc).lower()
+    needles = (
+        "reasoning_effort",
+        "unexpected keyword",
+        "unknown field",
+        "unrecognized",
+        "extra inputs",
+        "invalid parameter",
+    )
+    return any(n in text for n in needles)
 
 
 logger = logging.getLogger(__name__)
@@ -390,12 +405,19 @@ class OpenAIProvider(BaseLLMProvider):
         if effective_max is None:
             effective_max = 0
         ceiling = self.max_tokens if self.max_tokens is not None else effective_max
-
+        stage_name = stage or "draft"
+        thinking = self._stage_policy(stage_name).thinking
+        thinking_forced_off = False
         starvation_bumped = False
+        attempt = 1
+
         while True:
             self._assert_call_footprint(
                 total_prompt_tokens=total_prompt_tokens,
                 effective_max=effective_max,
+            )
+            active_thinking = (
+                ThinkingMode.OFF if thinking_forced_off else thinking
             )
             try:
                 res = self._invoke_chat_completion(
@@ -404,11 +426,23 @@ class OpenAIProvider(BaseLLMProvider):
                     temperature=temperature,
                     effective_max=effective_max,
                     stage=stage,
+                    thinking=active_thinking,
                 )
             except OutputTokenStarvationError:
+                if not thinking_forced_off and thinking != ThinkingMode.OFF:
+                    thinking_forced_off = True
+                    attempt += 1
+                    logger.warning(
+                        "Output token starvation stage=%s; retrying once with "
+                        "thinking=off (retry_reason=thinking_disabled)",
+                        stage,
+                    )
+                    continue
                 if starvation_bumped or effective_max >= ceiling:
                     raise
-                bump = max(self.reasoning_reserve, 512) if self.reasoning_reserve else 512
+                bump = (
+                    max(self.reasoning_reserve, 512) if self.reasoning_reserve else 512
+                )
                 bumped = min(ceiling, max(effective_max * 2, effective_max + bump))
                 if bumped <= effective_max:
                     raise
@@ -421,11 +455,14 @@ class OpenAIProvider(BaseLLMProvider):
                 )
                 effective_max = bumped
                 starvation_bumped = True
+                attempt += 1
                 continue
 
-            if starvation_bumped:
+            if thinking_forced_off:
+                res.retry_reason = "thinking_disabled"
+            elif starvation_bumped:
                 res.retry_reason = "reasoning_budget"
-                res.attempt = max(res.attempt or 1, 2)
+            res.attempt = max(res.attempt or 1, attempt)
             return res
 
     def _assert_call_footprint(
@@ -451,6 +488,15 @@ class OpenAIProvider(BaseLLMProvider):
                 f"raw_prompt_tokens={total_prompt_tokens}."
             )
 
+    @staticmethod
+    def _thinking_request_kwargs(thinking: ThinkingMode) -> dict[str, Any]:
+        """Best-effort OpenAI-compatible extras for server thinking control."""
+        if thinking == ThinkingMode.OFF:
+            return {"reasoning_effort": "none"}
+        if thinking == ThinkingMode.MINIMAL:
+            return {"reasoning_effort": "low"}
+        return {}
+
     def _invoke_chat_completion(
         self,
         *,
@@ -459,6 +505,7 @@ class OpenAIProvider(BaseLLMProvider):
         temperature: float,
         effective_max: int,
         stage: str | None,
+        thinking: ThinkingMode = ThinkingMode.OFF,
     ) -> LLMResponse:
         kwargs: dict[str, Any] = {
             "model": model,
@@ -468,6 +515,7 @@ class OpenAIProvider(BaseLLMProvider):
         }
         if effective_max:
             kwargs["max_tokens"] = effective_max
+        kwargs.update(self._thinking_request_kwargs(thinking))
 
         max_attempts = self.retry_config.get("max_attempts", 3)
         min_wait = self.retry_config.get("min_wait_seconds", 2)
@@ -490,8 +538,29 @@ class OpenAIProvider(BaseLLMProvider):
                 try:
                     response = self.client.chat.completions.create(**kwargs)  # type: ignore
                 except TypeError:
+                    # Drop unsupported extras (stream_options and/or reasoning_effort).
                     kwargs.pop("stream_options", None)
-                    response = self.client.chat.completions.create(**kwargs)  # type: ignore
+                    if "reasoning_effort" in kwargs:
+                        logger.debug(
+                            "Provider rejected reasoning_effort; retrying without it"
+                        )
+                        kwargs.pop("reasoning_effort", None)
+                    try:
+                        response = self.client.chat.completions.create(**kwargs)  # type: ignore
+                    except TypeError:
+                        kwargs.pop("stream_options", None)
+                        response = self.client.chat.completions.create(**kwargs)  # type: ignore
+                except Exception as exc:
+                    # Some servers return 400 for unknown fields instead of TypeError.
+                    if "reasoning_effort" in kwargs and _is_unsupported_param_error(exc):
+                        logger.debug(
+                            "Provider rejected reasoning_effort (%s); retrying without it",
+                            exc,
+                        )
+                        kwargs.pop("reasoning_effort", None)
+                        response = self.client.chat.completions.create(**kwargs)  # type: ignore
+                    else:
+                        raise
 
                 chunks = []
                 final_usage = None
@@ -534,6 +603,7 @@ class OpenAIProvider(BaseLLMProvider):
                         reasoning_tokens = int(
                             getattr(details, "reasoning_tokens", 0) or 0
                         )
+                    res.reasoning_tokens = reasoning_tokens
                     spent = max(res.completion_tokens or 0, reasoning_tokens)
                     if not res.text and spent > 0:
                         raise OutputTokenStarvationError(spent, stage=stage)

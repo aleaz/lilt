@@ -490,3 +490,54 @@ def test_output_token_starvation_retries_with_reasoning_budget(mocker):
     second_max = create.call_args_list[1].kwargs.get("max_tokens")
     assert first_max is not None and second_max is not None
     assert second_max > first_max
+
+
+def test_output_token_starvation_retries_with_thinking_disabled(mocker):
+    class Usage:
+        prompt_tokens = 10
+        completion_tokens = 128
+        prompt_tokens_details = None
+        completion_tokens_details = None
+
+    class StarvingChunk:
+        def __init__(self):
+            self.choices = [MockChunkChoice(MockDelta(None))]
+            self.usage = Usage()
+
+    class OkChunk:
+        def __init__(self):
+            self.choices = [MockChunkChoice(MockDelta("Hola"))]
+            self.usage = Usage()
+
+    class StarvingResponse:
+        def __iter__(self):
+            yield StarvingChunk()
+
+    class OkResponse:
+        def __iter__(self):
+            yield OkChunk()
+
+    provider = OpenAIProvider(
+        api_key="test",
+        base_url="http://test",
+        model_context_limit=8192,
+        max_tokens=256,
+        cost_plane=build_reflection_cost_plane(
+            cost_profile="balanced",
+            stage_overrides={
+                "draft": {"thinking": "on", "output_floor": 256},
+            },
+        ),
+    )
+    create = mocker.patch.object(
+        provider.client.chat.completions,
+        "create",
+        side_effect=[StarvingResponse(), OkResponse()],
+    )
+
+    res = provider.generate_draft("Hello world")
+    assert res.text == "Hola"
+    assert res.retry_reason == "thinking_disabled"
+    assert create.call_count == 2
+    assert "reasoning_effort" not in create.call_args_list[0].kwargs
+    assert create.call_args_list[1].kwargs.get("reasoning_effort") == "none"

@@ -23,6 +23,18 @@ class PromptProfile(str, Enum):
     REASONED_GATE = "reasoned_gate"
 
 
+class ThinkingMode(str, Enum):
+    """Server-side thinking / reasoning hint for a stage (best-effort to the API).
+
+    Distinct from :class:`PromptProfile.REASONED_GATE`, which only shapes the
+    critique *prompt* (``<reasoning>`` block), not LM Studio / vendor thinking.
+    """
+
+    OFF = "off"
+    ON = "on"
+    MINIMAL = "minimal"
+
+
 class DurabilityPolicy(str, Enum):
     """TM JSONL durability vs I/O cost tradeoff."""
 
@@ -40,6 +52,7 @@ class StagePolicy(BaseModel):
     output_multiplier: float = 1.5
     output_floor: int = 256
     output_margin: int = 64
+    thinking: ThinkingMode = ThinkingMode.OFF
 
 
 class ReflectionCostPlane(BaseModel):

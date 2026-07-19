@@ -152,7 +152,8 @@ class OutputTokenStarvationError(LiltDomainError):
             f"{completion_tokens} completion token(s). The serving stack likely "
             "spent the output budget on reasoning/thinking. Increase "
             "llm.max_tokens, use output_token_mode=split_budget with "
-            "reasoning_reserve, or disable thinking for this stage."
+            "reasoning_reserve, set stage_policies.<stage>.thinking to off, "
+            "or disable thinking on the serving stack for this stage."
         )
         self.completion_tokens = completion_tokens
         self.stage = stage

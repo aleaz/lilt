@@ -39,15 +39,20 @@ llm:
   temperature: 0.3          # Draft phase creativity
   reflection_temperature: 0.0   # Critique and Refine (deterministic)
   max_tokens: 4096          # Must be < model_context_limit
-  model_context_limit: 8192 # Match serving n_ctx; use 32768 for real reflection+neighbors
-  output_token_mode: shared_budget  # or split_budget (+ reasoning_reserve) for thinking models
-  reasoning_reserve: 0
+  model_context_limit: 8192 # Match serving n_ctx; use 32768 for real reflection+neighbors (8192 = smoke)
+  output_token_mode: shared_budget  # default; use split_budget + reasoning_reserve when server thinking may be on
+  reasoning_reserve: 0      # packing reserve only (not "think N tokens"); used with split_budget
   tokenizer_fudge: 1.1
   chat_template_overhead: 48
   timeout: 600.0
   draft_empty_retries: 1   # Fast-fail on empty draft output (increase to retry)
   context_window: 3         # Overlay on StagePolicy (int or per-stage dict)
   cost_profile: balanced    # balanced | draft_only | strict
+  # Optional per-stage overrides (floors, windows, thinking hint):
+  # stage_policies:
+  #   draft:    { thinking: off }     # off | on | minimal (best-effort to API)
+  #   critique: { thinking: off }     # distinct from prompt_profile reasoned_gate
+  #   refine:   { thinking: off }
   translation_mode: workflow
   token_price_per_million: 5.0
   retry:
@@ -68,6 +73,12 @@ parser:
     - title
     # ... (see init template for full list)
 ```
+
+#### Thinking / reasoning (server vs prompt)
+
+- **Server thinking** (`stage_policies.*.thinking`): best-effort API hint (`reasoning_effort`). Default `off` for all stages under `balanced`. Does not replace LM Studio’s Enable Thinking toggle when the server ignores the field — still verify with a smoke call (`reasoning_tokens == 0`).
+- **`prompt_profile: reasoned_gate`**: only used by `cost_profile: strict` for critique; asks the model for a `<reasoning>` block in the *prompt*. Unrelated to LM Studio Thinking.
+- Capacity tiers (24GB+MoE vs dense, 48GB, Spark, cloud): see [docs/runbooks/performance.md](../runbooks/performance.md).
 
 #### Advanced LLM Options (uncomment in init comments)
 
