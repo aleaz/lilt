@@ -1,6 +1,6 @@
 [project]
 name = "latex-lilt"
-version = "0.1.0b1"
+version = "0.1.0"
 description = "CLI for continuous LaTeX localization using LLMs and Translation Memory"
 readme = "README.md"
 requires-python = ">=3.13"

@@ -358,7 +358,7 @@ wheels = [
 
 [[package]]
 name = "latex-lilt"
-version = "0.1.0b1"
+version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "click" },

@@ -2,12 +2,13 @@
 
 ## Supported versions
 
-Security fixes target the tip of `main` and the latest **0.1.x** public beta tag.
+There is no tagged release yet. Security fixes target the tip of `main`
+(pre-release **0.1.x** package line in development).
 
 | Line | Supported |
 |------|-----------|
-| `main` / 0.1.x beta (`v0.1.0-beta.1`+) | Yes |
-| Older tags | Best-effort until superseded |
+| `main` / pre-release 0.1.x | Yes |
+| Tagged releases | None yet |
 
 ## Reporting a vulnerability
 
