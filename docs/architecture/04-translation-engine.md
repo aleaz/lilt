@@ -42,7 +42,7 @@ workflow vs sequential execution modes differ.
 | `llm.cost_profile` | `balanced` | `balanced` / `draft_only` / `strict` — SSOT for StagePolicy defaults |
 | `llm.context_window` | `3` | Overlay on StagePolicy (int or per-stage dict); bare `3` keeps balanced defaults |
 | `llm.reflection_temperature` | `0.0` | Critique and refine temperature |
-| `llm.stage_policies` | (optional) | Per-stage overrides (`context_window`, `prompt_profile`, output budget fields) |
+| `llm.stage_policies` | (optional) | Per-stage overrides (`context_window`, `prompt_profile`, output budget fields, `thinking`) |
 | `review.queue_statuses` | `[refined, reviewed]` | Statuses eligible for `pipeline review` |
 
 Cost plane: `models/cost_plane.py` → `ReflectionCostPlane` / `StagePolicy`. See [05-llm-layer](05-llm-layer.md).
