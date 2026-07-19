@@ -48,14 +48,17 @@ flowchart LR
 Database: `.lilt/telemetry.db`, managed by `TelemetryService` (lazy singleton on `WorkspaceContext`).
 
 **Table `inference_records`:** per call — `segment_id`, `namespace`, `provider`,
-`model`, `stage`, token counts, duration, `is_heuristic_simple` (bypass flag).
+`model`, `stage`, token counts, duration, `is_heuristic_simple` (bypass flag),
+`attempt`, `retry_reason` (`http` / `validation` / `draft_empty`),
+`pack_context_ms`, `checkpoint_ms`, `effective_max_tokens`.
 
 **Views:** `stage_metrics`, `workflow_metrics` (exposed in `lilt telemetry show` as Workflow Summary).
 
 ### Recording
 
-`TelemetryService.record_inference_from_llm()` called after provider responses
-from `core/translation/` strategies (`PipelineService` injects `ctx.telemetry`).
+`TelemetryService.record_inference_from_llm()` is flushed after TM checkpoint
+persistence so `checkpoint_ms` is attributed to the same inference row
+(`BaseReflectionStrategy._queue_telemetry` / `_flush_telemetry`).
 
 ### CLI
 
@@ -92,8 +95,9 @@ Implemented in `telemetry/reflection_cost.py` and exposed via `TMService.get_sta
 | `services/workspace_context.py` | Lazy `TelemetryService` per workspace |
 | `cli/commands/telemetry.py` | `show` command |
 | `services/tm_service.py` | `get_stats` token aggregation |
-| `core/translation/base_strategy.py` | `_record_telemetry` hooks |
+| `core/translation/base_strategy.py` | `_queue_telemetry` / `_flush_telemetry` hooks |
 | `telemetry/reflection_cost.py` | Pre-flight token estimate for `tm status` |
+| `models/cost_plane.py` | Cost profiles and stage policies driving budgets |
 
 ## Failure modes
 

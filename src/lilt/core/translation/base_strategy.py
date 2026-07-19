@@ -49,6 +49,41 @@ class BaseReflectionStrategy:
         # segment tends to do so deterministically, so extra attempts only multiply
         # latency without improving the result. Configurable via llm.draft_empty_retries.
         self._draft_empty_retries = max(1, draft_empty_retries)
+        self._pending_telemetry: list[
+            tuple[
+                str,
+                str,
+                Literal["draft", "critique", "refine", "sequential"],
+                LLMResponse,
+                str,
+                str,
+            ]
+        ] = []
+
+    def _queue_telemetry(
+        self,
+        namespace: str,
+        segment_id: str,
+        stage: Literal["draft", "critique", "refine", "sequential"],
+        res: LLMResponse,
+        model_name: str,
+        finish_reason: str = "stop",
+    ) -> None:
+        """Defer telemetry until after checkpoint so ``checkpoint_ms`` is known."""
+        self._pending_telemetry.append(
+            (namespace, segment_id, stage, res, model_name, finish_reason)
+        )
+
+    def _flush_telemetry(self, checkpoint_ms: int | None = None) -> None:
+        for namespace, segment_id, stage, res, model_name, finish_reason in (
+            self._pending_telemetry
+        ):
+            if checkpoint_ms is not None:
+                res.checkpoint_ms = checkpoint_ms
+            self._record_telemetry(
+                namespace, segment_id, stage, res, model_name, finish_reason
+            )
+        self._pending_telemetry.clear()
 
     def _record_telemetry(
         self,

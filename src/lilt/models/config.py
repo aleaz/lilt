@@ -48,6 +48,8 @@ class LLMConfig(BaseModel):
     draft_empty_retries: int = 1
     token_price_per_million: float = 5.0
     reflection_enabled: bool = True
+    cost_profile: Literal["balanced", "draft_only", "strict"] = "balanced"
+    stage_policies: dict[str, Any] | None = None
     prompt_dir: str | None = None
     retry: LLMRetryConfig = Field(default_factory=LLMRetryConfig)
     stages: dict[str, Any] | None = None
@@ -67,6 +69,14 @@ class LLMConfig(BaseModel):
         return int(value)
 
     @model_validator(mode="after")
+    def _align_reflection_with_cost_profile(self) -> "LLMConfig":
+        if self.cost_profile == "draft_only":
+            self.reflection_enabled = False
+        elif not self.reflection_enabled:
+            self.cost_profile = "draft_only"
+        return self
+
+    @model_validator(mode="after")
     def _context_limit_exceeds_output_reservation(self) -> "LLMConfig":
         reserved = self.max_tokens
         if self.output_token_mode == "split_budget":
@@ -84,6 +94,17 @@ class LLMConfig(BaseModel):
             )
         return self
 
+    def build_cost_plane(self, *, durability: str = "strict") -> Any:
+        """Resolve :class:`~lilt.models.cost_plane.ReflectionCostPlane` for this LLM block."""
+        from lilt.models.cost_plane import build_reflection_cost_plane
+
+        return build_reflection_cost_plane(
+            cost_profile=self.cost_profile,
+            reflection_enabled=self.reflection_enabled,
+            context_window=self.context_window,
+            durability=durability,
+            stage_overrides=self.stage_policies,
+        )
 
 class ParserIdentityConfig(BaseModel):
     """Sync identity carry-over threshold."""
@@ -114,6 +135,14 @@ class ReviewConfig(BaseModel):
     queue_statuses: list[str] = Field(default_factory=lambda: ["refined", "reviewed"])
 
 
+class TMConfig(BaseModel):
+    """Translation Memory persistence settings."""
+
+    model_config = ConfigDict(extra="allow")
+
+    durability: Literal["strict", "batched"] = "strict"
+
+
 class LiltConfig(BaseModel):
     """Root validated configuration for a LILT workspace."""
 
@@ -123,6 +152,7 @@ class LiltConfig(BaseModel):
     llm: LLMConfig = Field(default_factory=LLMConfig)
     parser: ParserConfig = Field(default_factory=ParserConfig)
     review: ReviewConfig = Field(default_factory=ReviewConfig)
+    tm: TMConfig = Field(default_factory=TMConfig)
 
     def to_llm_factory_dict(
         self,
@@ -135,6 +165,9 @@ class LiltConfig(BaseModel):
         data["target_lang"] = self.project.target_lang
         data["domain_context"] = self.project.domain_context or None
         data["domain_context_max_tokens"] = self.project.domain_context_max_tokens
+        data["cost_profile"] = self.llm.cost_profile
+        data["stage_policies"] = self.llm.stage_policies
+        data["tm_durability"] = self.tm.durability
         if self.llm.prompt_dir and workspace_dir:
             prompt_dir = self.llm.prompt_dir
             data["prompt_dir"] = (

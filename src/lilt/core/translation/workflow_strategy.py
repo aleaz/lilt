@@ -128,82 +128,89 @@ class WorkflowReflectionStrategy(BaseReflectionStrategy):
                 "segment_id": seg.id,
                 "status_msg": f"{_STAGE_PROGRESS_LABEL.get(stage, f'{stage.capitalize()}ing')}...",
             }
-            with process_segment(
-                self.checkpoint,
-                namespace,
-                seg,
-                active_segments,
-                is_last=(i == len(to_process) - 1),
-            ):
-                try:
-                    if stage == "draft":
-                        self._execute_draft(
-                            seg, namespace, active_segments, segment_to_idx
-                        )
-                    elif stage == "critique":
-                        self._execute_critique(
-                            seg, namespace, active_segments, segment_to_idx
-                        )
-                    elif stage == "refine":
-                        self._execute_refine(
-                            seg,
-                            namespace,
-                            active_segments,
-                            segment_to_idx,
-                            start_time,
-                        )
-                        if seg.refined:
-                            refined_text = seg.refined.content
+            timing: dict[str, int] = {}
+            try:
+                with process_segment(
+                    self.checkpoint,
+                    namespace,
+                    seg,
+                    active_segments,
+                    is_last=(i == len(to_process) - 1),
+                    timing=timing,
+                ):
+                    try:
+                        if stage == "draft":
+                            self._execute_draft(
+                                seg, namespace, active_segments, segment_to_idx
+                            )
+                        elif stage == "critique":
+                            self._execute_critique(
+                                seg, namespace, active_segments, segment_to_idx
+                            )
+                        elif stage == "refine":
+                            self._execute_refine(
+                                seg,
+                                namespace,
+                                active_segments,
+                                segment_to_idx,
+                                start_time,
+                            )
+                            if seg.refined:
+                                refined_text = seg.refined.content
 
-                    yield progress_pass(seg.id, time.time() - start_time, stage=stage)
-                except ValidationError as exc:
-                    if stage == "refine" and self._try_accept_valid_draft(seg):
                         yield progress_pass(
                             seg.id, time.time() - start_time, stage=stage
                         )
-                        continue
-                    logger.error(f"Validation failed for {seg.id}: {exc}")
-                    conflict_text = (
-                        refined_text or getattr(exc, "attempt_text", None) or ""
-                    )
-                    if stage == "draft" and not conflict_text and seg.draft:
-                        conflict_text = seg.draft.content
-                    seg.mark_validation_conflict(
-                        conflict_text,
-                        stage=stage if stage == "refine" else None,
-                        refine_model=self._stage_model("refine")
-                        if stage == "refine"
-                        else None,
-                    )
-                    yield progress_validation_fail(
-                        seg.id, time.time() - start_time, str(exc)
-                    )
-                except (PreconditionError, MultipleSegmentsFoundError):
-                    raise
-                except Exception as exc:
-                    logger.error(f"LLM/Pipeline failure for {seg.id}: {exc}")
-                    seg.mark_infrastructure_error(exc)
-                    if (
-                        isinstance(exc, EmptyLLMOutputError)
-                        and seg.error_meta is not None
-                    ):
-                        seg.error_meta = seg.error_meta.model_copy(
-                            update={
-                                "message": (
-                                    f"{seg.error_meta.message} "
-                                    "Hint: retry with --force, use a larger model, "
-                                    "or simplify complex macro blocks (e.g. \\author)."
-                                )
-                            }
+                    except ValidationError as exc:
+                        if stage == "refine" and self._try_accept_valid_draft(seg):
+                            yield progress_pass(
+                                seg.id, time.time() - start_time, stage=stage
+                            )
+                            continue
+                        logger.error(f"Validation failed for {seg.id}: {exc}")
+                        conflict_text = (
+                            refined_text or getattr(exc, "attempt_text", None) or ""
                         )
-                    yield progress_error(
-                        seg.id,
-                        time.time() - start_time,
-                        str(exc),
-                        kind="llm"
-                        if isinstance(exc, EmptyLLMOutputError)
-                        else "pipeline",
-                    )
+                        if stage == "draft" and not conflict_text and seg.draft:
+                            conflict_text = seg.draft.content
+                        seg.mark_validation_conflict(
+                            conflict_text,
+                            stage=stage if stage == "refine" else None,
+                            refine_model=self._stage_model("refine")
+                            if stage == "refine"
+                            else None,
+                        )
+                        yield progress_validation_fail(
+                            seg.id, time.time() - start_time, str(exc)
+                        )
+                    except (PreconditionError, MultipleSegmentsFoundError):
+                        raise
+                    except Exception as exc:
+                        logger.error(f"LLM/Pipeline failure for {seg.id}: {exc}")
+                        seg.mark_infrastructure_error(exc)
+                        if (
+                            isinstance(exc, EmptyLLMOutputError)
+                            and seg.error_meta is not None
+                        ):
+                            seg.error_meta = seg.error_meta.model_copy(
+                                update={
+                                    "message": (
+                                        f"{seg.error_meta.message} "
+                                        "Hint: retry with --force, use a larger model, "
+                                        "or simplify complex macro blocks (e.g. \\author)."
+                                    )
+                                }
+                            )
+                        yield progress_error(
+                            seg.id,
+                            time.time() - start_time,
+                            str(exc),
+                            kind="llm"
+                            if isinstance(exc, EmptyLLMOutputError)
+                            else "pipeline",
+                        )
+            finally:
+                self._flush_telemetry(timing.get("checkpoint_ms"))
 
         self.checkpoint.finalize_stage(namespace, active_segments)
         yield {"type": "done"}
@@ -223,6 +230,9 @@ class WorkflowReflectionStrategy(BaseReflectionStrategy):
         for attempt in range(attempts):
             try:
                 draft_result = run_draft(self.llm, seg.source_text, context)
+                draft_result.response.attempt = attempt + 1
+                if attempt > 0:
+                    draft_result.response.retry_reason = "draft_empty"
                 break
             except EmptyLLMOutputError as exc:
                 last_empty_error = exc
@@ -256,7 +266,7 @@ class WorkflowReflectionStrategy(BaseReflectionStrategy):
             seg.status = SegmentStatus.DRAFTED
             seg.reflection_meta = ReflectionMeta(used=True, draft_accepted=False)
 
-        self._record_telemetry(
+        self._queue_telemetry(
             namespace, seg.id, "draft", draft_result.response, model_name
         )
 
@@ -312,7 +322,7 @@ class WorkflowReflectionStrategy(BaseReflectionStrategy):
             critique_feedback=critique_text,
         )
         seg.status = SegmentStatus.CRITIQUED
-        self._record_telemetry(
+        self._queue_telemetry(
             namespace, seg.id, "critique", critique_result.response, model_name
         )
 
@@ -350,7 +360,7 @@ class WorkflowReflectionStrategy(BaseReflectionStrategy):
                 duration_ms=int((time.time() - start_time) * 1000),
             )
             res.bypass = True
-            self._record_telemetry(namespace, seg.id, "refine", res, model_name)
+            self._queue_telemetry(namespace, seg.id, "refine", res, model_name)
             refined_text = SegmentTranslationValidator.normalize_translation(
                 seg.source_text, refined_text
             )
@@ -374,7 +384,7 @@ class WorkflowReflectionStrategy(BaseReflectionStrategy):
         refined_text = SegmentTranslationValidator.normalize_translation(
             seg.source_text, refine_result.text
         )
-        self._record_telemetry(
+        self._queue_telemetry(
             namespace, seg.id, "refine", refine_result.response, model_name
         )
         seg.refined = StageArtifact(content=refined_text, model=model_name)
@@ -430,4 +440,4 @@ class WorkflowReflectionStrategy(BaseReflectionStrategy):
         seg.status = SegmentStatus.CRITIQUED
         res = LLMResponse(text=_CRITIQUE_BYPASS_PAYLOAD, duration_ms=0)
         res.bypass = True
-        self._record_telemetry(namespace, seg.id, "critique", res, model_name)
+        self._queue_telemetry(namespace, seg.id, "critique", res, model_name)

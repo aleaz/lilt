@@ -14,6 +14,7 @@ Evaluate the draft against ONLY these three axes:
 {{ draft }}
 </draft_translation>
 
+{% if prompt_profile == "reasoned_gate" %}
 First, write a <reasoning> block where you briefly analyze the translation against the 3 axes (Fluency, Consistency, Accuracy).
 Then, write your final critique in STRICT JSON format matching the following schema:
 ```json
@@ -26,3 +27,8 @@ Then, write your final critique in STRICT JSON format matching the following sch
 ```
 If the draft is perfect and needs no changes, return `{"requires_refine": false, "issues": []}`.
 Output the reasoning block first, and the JSON block last.
+{% else %}
+Return ONLY strict JSON (no markdown fences, no reasoning prose) matching:
+{"requires_refine": true, "issues": [{"category": "fluency|consistency|accuracy|other", "description": "Short actionable description"}]}
+If the draft needs no changes, return {"requires_refine": false, "issues": []}.
+{% endif %}

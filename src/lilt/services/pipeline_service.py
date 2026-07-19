@@ -111,14 +111,18 @@ class TranslationOrchestrator:
         """Translate eligible segments and yield progress tuples."""
         config = self.ctx.preconditions.load_config()
         self.ctx.preconditions.require_namespace(namespace)
+        plane = config.llm.build_cost_plane(durability=config.tm.durability)
+        self.ctx.repo.durability = plane.durability
         llm_config = config.to_llm_factory_dict(workspace_dir=self.ctx.workspace_dir)
+        llm_config["reflection_enabled"] = plane.reflection_enabled
+        llm_config["cost_profile"] = plane.profile.value
         llm = ProviderFactory.create(llm_config)
         mode = translation_mode or TranslationMode.from_llm_config(llm_config)
         strategy = create_reflection_strategy(
             mode,
             self.ctx.repo,
             llm,
-            config.llm.context_window,
+            plane.context_windows(),
             self.ctx.telemetry,
             draft_empty_retries=config.llm.draft_empty_retries,
         )

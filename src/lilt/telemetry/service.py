@@ -58,9 +58,25 @@ class TelemetryService:
                         cached_tokens INTEGER,
                         usage_source TEXT,
                         finish_reason TEXT,
-                        is_heuristic_simple BOOLEAN
+                        is_heuristic_simple BOOLEAN,
+                        attempt INTEGER DEFAULT 1,
+                        retry_reason TEXT,
+                        pack_context_ms INTEGER,
+                        checkpoint_ms INTEGER,
+                        effective_max_tokens INTEGER
                     )
                 """
+            )
+            self._ensure_columns(
+                cursor,
+                "inference_records",
+                {
+                    "attempt": "INTEGER DEFAULT 1",
+                    "retry_reason": "TEXT",
+                    "pack_context_ms": "INTEGER",
+                    "checkpoint_ms": "INTEGER",
+                    "effective_max_tokens": "INTEGER",
+                },
             )
 
             # View for logical stage metrics
@@ -97,6 +113,18 @@ class TelemetryService:
                 """
             )
 
+    @staticmethod
+    def _ensure_columns(
+        cursor: sqlite3.Cursor, table: str, columns: dict[str, str]
+    ) -> None:
+        """Add missing columns on existing databases (SQLite migration)."""
+        existing = {
+            row[1] for row in cursor.execute(f"PRAGMA table_info({table})").fetchall()
+        }
+        for name, decl in columns.items():
+            if name not in existing:
+                cursor.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
+
     def record_inference(self, record: InferenceRecord) -> TelemetryResult:
         """Saves a single inference record to the database."""
         try:
@@ -108,8 +136,9 @@ class TelemetryService:
                         id, segment_id, namespace, provider, model, stage, prompt_version,
                         started_at, finished_at, duration_ms, ttft_ms,
                         prompt_tokens, completion_tokens, cached_tokens, usage_source, finish_reason,
-                        is_heuristic_simple
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        is_heuristic_simple, attempt, retry_reason,
+                        pack_context_ms, checkpoint_ms, effective_max_tokens
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         record.id or str(uuid.uuid4()),
@@ -129,6 +158,11 @@ class TelemetryService:
                         record.usage.source,
                         record.finish_reason,
                         record.is_heuristic_simple,
+                        record.attempt,
+                        record.retry_reason,
+                        record.pack_context_ms,
+                        record.checkpoint_ms,
+                        record.effective_max_tokens,
                     ),
                 )
             return TelemetryResult(success=True)
@@ -173,6 +207,11 @@ class TelemetryService:
                 usage_source="api",
                 finish_reason=finish_reason,
                 is_heuristic_simple=is_heuristic,
+                attempt=getattr(res, "attempt", 1) or 1,
+                retry_reason=getattr(res, "retry_reason", None),
+                pack_context_ms=getattr(res, "pack_context_ms", None),
+                checkpoint_ms=getattr(res, "checkpoint_ms", None),
+                effective_max_tokens=getattr(res, "effective_max_tokens", None),
             )
         except Exception as e:
             logger.error(f"Failed to build inference telemetry record: {e}")

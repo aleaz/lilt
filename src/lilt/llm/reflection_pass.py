@@ -131,6 +131,9 @@ def run_refine(
 
     while retries < max_validation_retries:
         response = llm.generate_refine(refined_text, working_critique, source, context)
+        response.attempt = retries + 1
+        if retries > 0:
+            response.retry_reason = "validation"
         candidate = response.text
         try:
             refined_text = SegmentTranslationValidator.normalize_translation(

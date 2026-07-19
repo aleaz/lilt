@@ -72,6 +72,8 @@ class ProviderFactory:
         reasoning_reserve = int(config.get("reasoning_reserve", 0))
         tokenizer_fudge = float(config.get("tokenizer_fudge", 1.1))
         chat_template_overhead = int(config.get("chat_template_overhead", 48))
+        cost_profile = config.get("cost_profile", "balanced")
+        stage_policies = config.get("stage_policies")
 
         return OpenAIProvider(
             api_key=api_key,
@@ -96,4 +98,6 @@ class ProviderFactory:
             tokenizer_fudge=tokenizer_fudge,
             chat_template_overhead=chat_template_overhead,
             domain_context_max_tokens=domain_context_max_tokens,
+            cost_profile=str(cost_profile),
+            stage_policies=stage_policies,
         )

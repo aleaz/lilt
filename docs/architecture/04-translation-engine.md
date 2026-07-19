@@ -38,10 +38,14 @@ workflow vs sequential execution modes differ.
 | Key | Default | Description |
 |-----|---------|-------------|
 | `llm.translation_mode` | `workflow` | `workflow` or `sequential` |
-| `llm.reflection_enabled` | `true` (factory) | Single-pass when `false` |
-| `llm.context_window` | `3` | Segment pairs for context (int or per-stage dict) |
+| `llm.reflection_enabled` | `true` (factory) | Single-pass when `false` (also via `cost_profile: draft_only`) |
+| `llm.cost_profile` | `balanced` | `balanced` / `draft_only` / `strict` — SSOT for StagePolicy defaults |
+| `llm.context_window` | `3` | Overlay on StagePolicy (int or per-stage dict); bare `3` keeps balanced defaults |
 | `llm.reflection_temperature` | `0.0` | Critique and refine temperature |
+| `llm.stage_policies` | (optional) | Per-stage overrides (`context_window`, `prompt_profile`, output budget fields) |
 | `review.queue_statuses` | `[refined, reviewed]` | Statuses eligible for `pipeline review` |
+
+Cost plane: `models/cost_plane.py` → `ReflectionCostPlane` / `StagePolicy`. See [05-llm-layer](05-llm-layer.md).
 
 Advanced: per-stage `context_window: {draft: N, critique: N, refine: N}` — see [05-llm-layer](05-llm-layer.md).
 
@@ -79,7 +83,7 @@ generated → drafted → critiqued → refined
 ```
 
 - **Draft:** contextual RAG with bidirectional window in workflow; backward-priority in sequential.
-- **Critique:** MQM JSON with `requires_refine`; short-circuits refine when `requires_refine: false`. Empty critique bypasses to accept draft. Non-empty output that fails structural JSON parse → `conflict` (refine not called).
+- **Critique:** MQM JSON with `requires_refine`; short-circuits refine when `requires_refine: false`. Empty critique bypasses to accept draft. Non-empty output that fails structural JSON parse → `conflict` (refine not called). Default `balanced` profile uses `json_gate` (JSON only); `strict` uses `reasoned_gate` (optional reasoning + JSON).
 - **Refine:** correction pass; up to **3 validation retries** with error feedback appended to critique text (both workflow and sequential). Invalid stored critique JSON also aborts refine with `conflict`.
 - Re-draft clears prior `critique` and `refined` artifacts.
 

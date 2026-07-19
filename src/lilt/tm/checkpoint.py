@@ -1,5 +1,7 @@
 """Translation-time persistence checkpoint over the TM JSONL store."""
 
+import time
+
 from lilt.models.segment import StoredSegment
 from lilt.tm.repository import TMRepository, deduplicate_ordered_segments
 
@@ -19,10 +21,14 @@ class TranslationCheckpoint:
 
     def __init__(self, repo: TMRepository) -> None:
         self._repo = repo
+        self.last_record_ms: int | None = None
 
-    def record_segment(self, namespace: str, segment: StoredSegment) -> None:
+    def record_segment(self, namespace: str, segment: StoredSegment) -> int:
         """Append a single segment update for crash-safe incremental progress."""
+        t0 = time.perf_counter()
         self._repo.append_segment(namespace, segment)
+        self.last_record_ms = int((time.perf_counter() - t0) * 1000)
+        return self.last_record_ms
 
     def finalize_stage(
         self, namespace: str, active_segments: list[StoredSegment]
@@ -37,8 +43,12 @@ class TranslationCheckpoint:
         active_segments: list[StoredSegment],
         *,
         is_last_in_batch: bool,
-    ) -> None:
+    ) -> int:
         """Append one segment and compact the namespace when the batch ends."""
-        self.record_segment(namespace, segment)
+        ms = self.record_segment(namespace, segment)
         if is_last_in_batch:
+            t0 = time.perf_counter()
             self.finalize_stage(namespace, active_segments)
+            ms += int((time.perf_counter() - t0) * 1000)
+            self.last_record_ms = ms
+        return ms

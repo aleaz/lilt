@@ -20,6 +20,7 @@ from lilt.exceptions import (
     TMCorruptionError,
     TMImportError,
 )
+from lilt.models.cost_plane import DurabilityPolicy
 from lilt.models.segment import (
     FileFormat,
     SegmentHistoryEntry,
@@ -64,8 +65,9 @@ def deduplicate_ordered_segments(segments: list[StoredSegment]) -> list[StoredSe
 class TMRepository:
     """Manages persistence of Translation Memory to JSONL files."""
 
-    def __init__(self, base_dir: str):
+    def __init__(self, base_dir: str, *, durability: str = "strict"):
         self.base_dir = base_dir
+        self.durability = DurabilityPolicy(durability)
 
     def _get_filepath(self, namespace: str) -> str:
         # Prevent path traversal; namespace is a flat encoded relative path
@@ -203,7 +205,9 @@ class TMRepository:
         ):
             f.write(segment.model_dump_json(by_alias=True) + "\n")
             f.flush()
-            os.fsync(f.fileno())
+            # strict: fsync every append; batched: rely on stage finalize save_namespace
+            if self.durability == DurabilityPolicy.STRICT:
+                os.fsync(f.fileno())
 
     def reset_namespace(
         self, namespace: str, dry_run: bool = False, *, force: bool = False

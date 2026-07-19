@@ -93,6 +93,36 @@ When code and prose disagree, **code wins**; update documentation to match.
 | **Alternative names** | "workflow pipeline", "multi-agent" (deprecated in docs) |
 | **Recommendation** | **Keep**; **Deprecate** "multi-agent" as project framing |
 
+### Cost Profile
+
+| | |
+|---|---|
+| **Definition** | Product-level reflection cost mode: `balanced`, `draft_only`, or `strict` |
+| **Responsibility** | Selects default `StagePolicy` set and whether critique/refine run |
+| **Relationships** | SSOT over bare `reflection_enabled`; mapped in `ReflectionCostPlane` |
+| **Code example** | `CostProfileName` / `build_reflection_cost_plane` in `models/cost_plane.py` |
+| **Recommendation** | **Keep** |
+
+### Stage Policy
+
+| | |
+|---|---|
+| **Definition** | Per-stage rules: neighbor `context_window`, `prompt_profile`, adaptive output budget |
+| **Responsibility** | Makes critique cheap by default (`json_gate`) without removing the stage |
+| **Relationships** | Owned by `ReflectionCostPlane`; overridable via `llm.stage_policies` |
+| **Code example** | `StagePolicy` in `models/cost_plane.py` |
+| **Recommendation** | **Keep** |
+
+### Durability Policy
+
+| | |
+|---|---|
+| **Definition** | TM JSONL fsync policy: `strict` (per append) or `batched` (on stage finalize) |
+| **Responsibility** | Trade crash window vs append I/O cost |
+| **Relationships** | Configured as `tm.durability`; applied by `TMRepository` |
+| **Code example** | `DurabilityPolicy` in `models/cost_plane.py` |
+| **Recommendation** | **Keep**; default `strict` for CI and crash-sensitive runs |
+
 ### Translation Stage
 
 | | |

@@ -39,3 +39,8 @@ class InferenceRecord(BaseModel):
     usage_source: str = "locally_estimated"
     finish_reason: str | None = None
     is_heuristic_simple: bool | None = None
+    attempt: int = 1
+    retry_reason: str | None = None
+    pack_context_ms: int | None = None
+    checkpoint_ms: int | None = None
+    effective_max_tokens: int | None = None

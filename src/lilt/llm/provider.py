@@ -24,6 +24,11 @@ class LLMResponse:
     started_at: datetime = field(default_factory=datetime.now)
     finished_at: datetime = field(default_factory=datetime.now)
     bypass: bool = False
+    attempt: int = 1
+    retry_reason: str | None = None
+    pack_context_ms: int | None = None
+    checkpoint_ms: int | None = None
+    effective_max_tokens: int | None = None
 
 
 ContextData = Sequence[str] | dict[str, list[str]]

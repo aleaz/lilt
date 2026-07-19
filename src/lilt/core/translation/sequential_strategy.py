@@ -81,97 +81,111 @@ class SequentialReflectionStrategy(BaseReflectionStrategy):
             translated_text = ""
             result_meta: dict | None = None
             result_event = None
-            with process_segment(
-                self.checkpoint,
-                namespace,
-                seg,
-                active_segments,
-                is_last=(i == len(to_translate) - 1),
-            ):
-                try:
-                    context = self.resolver.resolve_for_refine(
-                        seg, active_segments, segment_to_idx
-                    )
-                    saw_result = False
-                    for event in self.llm.translate_segment_iter(
-                        seg.source_text, context=context
-                    ):
-                        if event["type"] == "status":
-                            yield {
-                                "type": "sub_status",
-                                "segment_id": seg.id,
-                                "status_msg": event["message"],
-                            }
-                        elif event["type"] == "result":
-                            saw_result = True
-                            translated_text = event["text"]
-                            result_meta = event.get("meta")
-
-                    if not saw_result:
-                        raise EmptyLLMOutputError("sequential")
-
-                    translated_text = SegmentTranslationValidator.normalize_translation(
-                        seg.source_text, translated_text
-                    )
-                    if result_meta:
-                        seg.reflection_meta = ReflectionMeta(**result_meta)
-                    seg.apply_successful_translation(translated_text)
-                    if self.telemetry and translated_text:
-                        meta = result_meta or {}
-                        simulated_res = LLMResponse(
-                            text=translated_text,
-                            duration_ms=int((time.time() - start_time) * 1000),
-                            bypass=meta.get("bypass", False),
+            timing: dict[str, int] = {}
+            try:
+                with process_segment(
+                    self.checkpoint,
+                    namespace,
+                    seg,
+                    active_segments,
+                    is_last=(i == len(to_translate) - 1),
+                    timing=timing,
+                ):
+                    try:
+                        context = self.resolver.resolve_for_refine(
+                            seg, active_segments, segment_to_idx
                         )
-                        self._record_telemetry(
-                            namespace=namespace,
-                            segment_id=seg.id,
-                            stage="sequential",
-                            res=simulated_res,
-                            model_name=self._stage_model("sequential"),
-                        )
-                    result_event = progress_pass(seg.id, time.time() - start_time)
-                except ValidationError as exc:
-                    logger.error(f"Validation failed for {seg.id}: {exc}")
-                    normalized_draft = SegmentTranslationValidator.try_normalize_draft(
-                        seg.source_text,
-                        translated_text or (seg.draft.content if seg.draft else ""),
-                    )
-                    if normalized_draft is not None:
-                        if result_meta:
-                            seg.reflection_meta = ReflectionMeta(
-                                used=True,
-                                draft_accepted=True,
-                                critique_feedback=seg.reflection_meta.critique_feedback
-                                if seg.reflection_meta
-                                else "",
+                        saw_result = False
+                        for event in self.llm.translate_segment_iter(
+                            seg.source_text, context=context
+                        ):
+                            if event["type"] == "status":
+                                yield {
+                                    "type": "sub_status",
+                                    "segment_id": seg.id,
+                                    "status_msg": event["message"],
+                                }
+                            elif event["type"] == "result":
+                                saw_result = True
+                                translated_text = event["text"]
+                                result_meta = event.get("meta")
+
+                        if not saw_result:
+                            raise EmptyLLMOutputError("sequential")
+
+                        translated_text = (
+                            SegmentTranslationValidator.normalize_translation(
+                                seg.source_text, translated_text
                             )
-                        seg.apply_successful_translation(normalized_draft)
+                        )
+                        if result_meta:
+                            seg.reflection_meta = ReflectionMeta(**result_meta)
+                        seg.apply_successful_translation(translated_text)
+                        if self.telemetry and translated_text:
+                            meta = result_meta or {}
+                            simulated_res = LLMResponse(
+                                text=translated_text,
+                                duration_ms=int((time.time() - start_time) * 1000),
+                                bypass=meta.get("bypass", False),
+                            )
+                            self._queue_telemetry(
+                                namespace=namespace,
+                                segment_id=seg.id,
+                                stage="sequential",
+                                res=simulated_res,
+                                model_name=self._stage_model("sequential"),
+                            )
                         result_event = progress_pass(seg.id, time.time() - start_time)
-                        if result_event is not None:
-                            yield result_event
-                        continue
-                    conflict_text = (
-                        translated_text or getattr(exc, "attempt_text", None) or ""
-                    )
-                    seg.mark_validation_conflict(conflict_text)
-                    result_event = progress_validation_fail(
-                        seg.id, time.time() - start_time, str(exc)
-                    )
-                except EmptyLLMOutputError as exc:
-                    logger.error(f"Empty LLM output for {seg.id}: {exc}")
-                    seg.mark_infrastructure_error(exc)
-                    result_event = progress_error(
-                        seg.id, time.time() - start_time, str(exc), kind="llm"
-                    )
-                except MultipleSegmentsFoundError:
-                    raise
-                except Exception as exc:
-                    logger.error(f"LLM failure for {seg.id}: {exc}")
-                    seg.mark_infrastructure_error(exc)
-                    result_event = progress_error(
-                        seg.id, time.time() - start_time, str(exc), kind="llm"
-                    )
+                    except ValidationError as exc:
+                        logger.error(f"Validation failed for {seg.id}: {exc}")
+                        normalized_draft = (
+                            SegmentTranslationValidator.try_normalize_draft(
+                                seg.source_text,
+                                translated_text
+                                or (seg.draft.content if seg.draft else ""),
+                            )
+                        )
+                        if normalized_draft is not None:
+                            if result_meta:
+                                seg.reflection_meta = ReflectionMeta(
+                                    used=True,
+                                    draft_accepted=True,
+                                    critique_feedback=(
+                                        seg.reflection_meta.critique_feedback
+                                        if seg.reflection_meta
+                                        else ""
+                                    ),
+                                )
+                            seg.apply_successful_translation(normalized_draft)
+                            result_event = progress_pass(
+                                seg.id, time.time() - start_time
+                            )
+                        else:
+                            conflict_text = (
+                                translated_text
+                                or getattr(exc, "attempt_text", None)
+                                or ""
+                            )
+                            seg.mark_validation_conflict(conflict_text)
+                            result_event = progress_validation_fail(
+                                seg.id, time.time() - start_time, str(exc)
+                            )
+                    except EmptyLLMOutputError as exc:
+                        logger.error(f"Empty LLM output for {seg.id}: {exc}")
+                        seg.mark_infrastructure_error(exc)
+                        result_event = progress_error(
+                            seg.id, time.time() - start_time, str(exc), kind="llm"
+                        )
+                    except MultipleSegmentsFoundError:
+                        raise
+                    except Exception as exc:
+                        logger.error(f"LLM failure for {seg.id}: {exc}")
+                        seg.mark_infrastructure_error(exc)
+                        result_event = progress_error(
+                            seg.id, time.time() - start_time, str(exc), kind="llm"
+                        )
+            finally:
+                self._flush_telemetry(timing.get("checkpoint_ms"))
 
             if result_event is not None:
                 yield result_event

@@ -127,7 +127,8 @@ failure raises `TMConcurrencyError`.
 | Operation | Guarantee |
 |-----------|-----------|
 | `save_namespace` | Atomic write via `.tmp` + `os.replace`, `fsync` |
-| `append_segment` | Newline-terminated line + `fsync` |
+| `append_segment` | Newline-terminated line + `flush`; `fsync` when `tm.durability=strict` (default). With `batched`, fsync is deferred to `save_namespace` / stage finalize |
+| Durability policy | `DurabilityPolicy` in `models/cost_plane.py`; configured via `tm.durability` |
 | `sync_parsed_blocks` | Same atomic save pattern as `save_namespace` |
 | JSONL load | Truncated final line (no newline) → `TMCorruptionError` with path and line number |
 

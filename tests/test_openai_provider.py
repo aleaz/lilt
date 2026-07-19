@@ -269,6 +269,7 @@ def test_openai_provider_tenacity_retry(mocker):
 
 def test_openai_provider_dynamic_token_accounting():
     # Tight neighbor budget: only the most recent backward segment fits.
+    # Pin output reservation near the ceiling so packing matches historical budget.
     provider = OpenAIProvider(
         api_key="test",
         base_url="http://test",
@@ -276,6 +277,13 @@ def test_openai_provider_dynamic_token_accounting():
         max_tokens=900,
         tokenizer_fudge=1.0,
         chat_template_overhead=0,
+        stage_policies={
+            "draft": {
+                "output_multiplier": 50.0,
+                "output_floor": 900,
+                "output_margin": 0,
+            }
+        },
     )
 
     target_text = "word"
@@ -285,7 +293,9 @@ def test_openai_provider_dynamic_token_accounting():
         "newest " * 100,
     ]
 
-    block = provider._build_context_block(context, target_text, stage="draft")
+    block, _pack_ms = provider._build_context_block(
+        context, target_text, stage="draft"
+    )
 
     # Budget fits two most-recent backward neighbors; oldest is dropped.
     assert "newest " * 100 in block
@@ -295,6 +305,8 @@ def test_openai_provider_dynamic_token_accounting():
 
 def test_openai_provider_dynamic_token_accounting_zero_budget():
     # Reserved output + measured fixed prompt leave no neighbor budget.
+    # Use ceiling-aligned adaptive budget via high floor / multiplier so packing
+    # still sees a large reserved_output (matches shared_budget ceiling).
     provider = OpenAIProvider(
         api_key="test",
         base_url="http://test",
@@ -302,12 +314,21 @@ def test_openai_provider_dynamic_token_accounting_zero_budget():
         max_tokens=1000,
         tokenizer_fudge=1.0,
         chat_template_overhead=48,
+        stage_policies={
+            "draft": {
+                "output_multiplier": 50.0,
+                "output_floor": 1000,
+                "output_margin": 0,
+            }
+        },
     )
 
     target_text = "huge " * 150
     context = ["context " * 100]
 
-    block = provider._build_context_block(context, target_text, stage="draft")
+    block, _pack_ms = provider._build_context_block(
+        context, target_text, stage="draft"
+    )
     assert block == ""
 
 

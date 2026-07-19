@@ -46,11 +46,15 @@ DEFAULT_CONFIG = {
         # The Draft phase uses `temperature` above (default 0.3) for natural phrasing.
         "reflection_temperature": 0.0,
         "token_price_per_million": 5.0,
+        "cost_profile": "balanced",
         "retry": {
             "max_attempts": 3,
             "min_wait_seconds": 2,
             "max_wait_seconds": 60,
         },
+    },
+    "tm": {
+        "durability": "strict",
     },
     "parser": {
         "custom_macros": [],

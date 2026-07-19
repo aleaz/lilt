@@ -29,6 +29,9 @@ htmlcov/
 # Project specific
 i18n/build/
 
+# Internal performance measurement / audit notes (not product docs)
+docs/PERFORMANCE_*.md
+
 # LaTeX build artifacts
 *.aux
 *.log

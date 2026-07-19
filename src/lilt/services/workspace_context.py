@@ -66,10 +66,20 @@ class WorkspaceContext:
         abs_workspace = os.path.abspath(workspace_dir)
         lilt_dir = os.path.join(abs_workspace, ".lilt")
         tm_dir = os.path.join(lilt_dir, "tm")
+        durability = "strict"
+        config_path = os.path.join(lilt_dir, "lilt.yaml")
+        if os.path.isfile(config_path):
+            try:
+                from lilt.utils.yaml_loader import load_yaml_config
+
+                raw = load_yaml_config(config_path)
+                durability = str(raw.get("tm", {}).get("durability", "strict"))
+            except Exception:
+                durability = "strict"
         return cls(
             workspace_dir=abs_workspace,
             lilt_dir=lilt_dir,
-            config_path=os.path.join(lilt_dir, "lilt.yaml"),
+            config_path=config_path,
             tm_dir=tm_dir,
-            repo=TMRepository(base_dir=tm_dir),
+            repo=TMRepository(base_dir=tm_dir, durability=durability),
         )

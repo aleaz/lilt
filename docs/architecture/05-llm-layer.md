@@ -40,17 +40,20 @@ for telemetry.
 | `llm.base_url` | `http://localhost:1234/v1` | API endpoint |
 | `llm.draft_model` / `critique_model` / `refine_model` | `""` | Fallback to `model` |
 | `llm.stages` | (optional) | Per-stage `{provider, model, base_url, model_context_limit, ...}` |
-| `llm.reflection_enabled` | `true` | Enable D→C→R in provider |
+| `llm.reflection_enabled` | `true` | Enable D→C→R in provider (`false` ⇒ `cost_profile: draft_only`) |
+| `llm.cost_profile` | `balanced` | `balanced` (cheap critique gate), `draft_only`, `strict` (reasoned critique) |
+| `llm.stage_policies` | (optional) | Override per-stage `StagePolicy` fields |
 | `llm.timeout` | `600.0` | Request timeout |
 | `llm.draft_empty_retries` | `1` | Draft attempts on empty LLM output before segment `error` |
 | `llm.retry.max_attempts` | `3` | Tenacity attempts |
 | `llm.model_context_limit` | `8192` | Physical context window for budgeting |
-| `llm.max_tokens` | `4096` | Completion cap (`max_tokens` request field) |
+| `llm.max_tokens` | `4096` | Completion ceiling; effective request size is adaptive per stage/source |
 | `llm.output_token_mode` | `shared_budget` | `shared_budget` or `split_budget` |
 | `llm.reasoning_reserve` | `0` | Extra reservation when `split_budget` |
 | `llm.tokenizer_fudge` | `1.1` | Multiplier on measured prompt tokens |
 | `llm.chat_template_overhead` | `48` | Chat-template / role overhead tokens |
 | `project.domain_context_max_tokens` | `512` | Cap for injected domain context |
+| `tm.durability` | `strict` | `strict` (fsync per append) or `batched` (fsync on stage finalize) |
 
 ## Data flow
 
@@ -71,7 +74,9 @@ flowchart TB
 
 `LLMProvider` defines `generate_draft`, `generate_critique`, `generate_refine`,
 `stage_model_name`, `get_prompt_version`, and `translate_segment_iter`. Returns
-`LLMResponse` with `text`, `duration_ms`, token counts, optional `bypass` flag.
+`LLMResponse` with `text`, `duration_ms`, token counts, optional `bypass`, plus
+observability fields (`attempt`, `retry_reason`, `pack_context_ms`,
+`checkpoint_ms`, `effective_max_tokens`).
 
 `stage_model_name(stage)` resolves the model identifier for telemetry and artifact
 metadata uniformly across single-model and router providers (no `isinstance` checks

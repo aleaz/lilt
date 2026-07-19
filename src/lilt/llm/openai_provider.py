@@ -36,6 +36,13 @@ from lilt.llm.token_budget import (
     call_footprint,
     plan_token_budget,
 )
+from lilt.models.cost_plane import (
+    PromptProfile,
+    ReflectionCostPlane,
+    StagePolicy,
+    adaptive_output_tokens,
+    build_reflection_cost_plane,
+)
 from lilt.parser.linguistic import has_linguistic_content
 from lilt.utils.token_utils import count_tokens
 
@@ -123,6 +130,9 @@ class OpenAIProvider(BaseLLMProvider):
         tokenizer_fudge: float = 1.1,
         chat_template_overhead: int = 48,
         domain_context_max_tokens: int = 512,
+        cost_plane: ReflectionCostPlane | None = None,
+        cost_profile: str = "balanced",
+        stage_policies: dict | None = None,
     ):
         _api_key = api_key if api_key is not None else os.getenv("OPENAI_API_KEY")
         self.base_url: str = (
@@ -159,7 +169,6 @@ class OpenAIProvider(BaseLLMProvider):
         self.reflection_temperature: float = reflection_temperature
 
         self.max_tokens: int | None = max_tokens
-        self._reflection_enabled: bool = reflection_enabled
         self.model_context_limit: int = model_context_limit
         self.timeout: float = timeout
         self.output_token_mode = OutputTokenMode(output_token_mode)
@@ -167,6 +176,13 @@ class OpenAIProvider(BaseLLMProvider):
         self.tokenizer_fudge = max(1.0, float(tokenizer_fudge))
         self.chat_template_overhead = max(0, int(chat_template_overhead))
         self.domain_context_max_tokens = max(0, int(domain_context_max_tokens))
+
+        self.cost_plane = cost_plane or build_reflection_cost_plane(
+            cost_profile=cost_profile,
+            reflection_enabled=reflection_enabled,
+            stage_overrides=stage_policies,
+        )
+        self._reflection_enabled: bool = self.cost_plane.reflection_enabled
 
         self.client = OpenAI(
             api_key=self.api_key, base_url=self.base_url, timeout=self.timeout
@@ -226,8 +242,15 @@ class OpenAIProvider(BaseLLMProvider):
         if stage == "draft":
             user_tokens = self.prompt_manager.measure("draft", text=source_text)
         elif stage == "critique":
+            profile = self._stage_policy("critique").prompt_profile
+            profile_value = (
+                profile.value if isinstance(profile, PromptProfile) else str(profile)
+            )
             user_tokens = self.prompt_manager.measure(
-                "critique", text=source_text, draft=draft_text
+                "critique",
+                text=source_text,
+                draft=draft_text,
+                prompt_profile=profile_value,
             )
         elif stage == "refine":
             user_tokens = self.prompt_manager.measure(
@@ -239,6 +262,19 @@ class OpenAIProvider(BaseLLMProvider):
         else:
             user_tokens = self.prompt_manager.measure("draft", text=source_text)
         return system_tokens + user_tokens
+
+    def _stage_policy(self, stage: str) -> StagePolicy:
+        return self.cost_plane.stage(stage)
+
+    def _effective_max_tokens(self, stage: str, source_text: str) -> int | None:
+        if self.max_tokens is None:
+            return None
+        source_tokens = count_tokens(source_text, model_name=self.model)
+        return adaptive_output_tokens(
+            source_tokens,
+            ceiling=int(self.max_tokens),
+            policy=self._stage_policy(stage),
+        )
 
     def plan_budget(
         self,
@@ -255,9 +291,12 @@ class OpenAIProvider(BaseLLMProvider):
             draft_text=draft_text,
             critique_text=critique_text,
         )
+        reserved = self._effective_max_tokens(stage, source_text)
+        if reserved is None:
+            reserved = 0
         return plan_token_budget(
             context_limit=self.model_context_limit,
-            max_tokens=self.max_tokens if self.max_tokens is not None else 0,
+            max_tokens=reserved,
             fixed_prompt_tokens=fixed,
             output_token_mode=self.output_token_mode,
             reasoning_reserve=self.reasoning_reserve,
@@ -278,10 +317,11 @@ class OpenAIProvider(BaseLLMProvider):
         stage: str = "draft",
         draft_text: str = "",
         critique_text: str = "",
-    ) -> str:
-        """Return the XML-fenced context block, packed under the measured budget."""
+    ) -> tuple[str, int]:
+        """Return ``(context_block, pack_context_ms)`` under the measured budget."""
+        t0 = time.perf_counter()
         if not context:
-            return ""
+            return "", int((time.perf_counter() - t0) * 1000)
 
         backward: list[str] = []
         forward: list[str] = []
@@ -292,7 +332,7 @@ class OpenAIProvider(BaseLLMProvider):
             backward = list(context)
 
         if not backward and not forward:
-            return ""
+            return "", int((time.perf_counter() - t0) * 1000)
 
         plan = self.plan_budget(
             stage=stage,
@@ -309,7 +349,7 @@ class OpenAIProvider(BaseLLMProvider):
                 plan.reserved_output,
                 plan.context_limit,
             )
-            return ""
+            return "", int((time.perf_counter() - t0) * 1000)
 
         block, _neighbor_tokens, truncated = pack_neighbor_context(
             backward=backward,
@@ -327,7 +367,7 @@ class OpenAIProvider(BaseLLMProvider):
                 plan.fixed_prompt_tokens,
                 plan.context_limit,
             )
-        return block
+        return block, int((time.perf_counter() - t0) * 1000)
 
     def _call_llm(
         self,
@@ -336,14 +376,22 @@ class OpenAIProvider(BaseLLMProvider):
         temperature: float,
         *,
         stage: str | None = None,
+        source_text: str = "",
     ) -> LLMResponse:
         """Single LLM API call with the configured model and token settings."""
         total_prompt_tokens = sum(
             count_tokens(m["content"], model_name=model) for m in messages
         )
+        effective_max = (
+            self._effective_max_tokens(stage or "draft", source_text)
+            if source_text
+            else (self.max_tokens if self.max_tokens is not None else 0)
+        )
+        if effective_max is None:
+            effective_max = 0
         plan = plan_token_budget(
             context_limit=self.model_context_limit,
-            max_tokens=self.max_tokens if self.max_tokens is not None else 0,
+            max_tokens=int(effective_max),
             fixed_prompt_tokens=total_prompt_tokens,
             output_token_mode=self.output_token_mode,
             reasoning_reserve=self.reasoning_reserve,
@@ -366,14 +414,15 @@ class OpenAIProvider(BaseLLMProvider):
             "messages": messages,
             "temperature": temperature,
         }
-        if self.max_tokens is not None:
-            kwargs["max_tokens"] = self.max_tokens
+        if effective_max:
+            kwargs["max_tokens"] = int(effective_max)
 
         max_attempts = self.retry_config.get("max_attempts", 3)
         min_wait = self.retry_config.get("min_wait_seconds", 2)
         max_wait = self.retry_config.get("max_wait_seconds", 60)
 
         kwargs["stream"] = True
+        attempt_number = 1
 
         for attempt in Retrying(
             wait=wait_exponential(multiplier=1, min=min_wait, max=max_wait),
@@ -383,6 +432,7 @@ class OpenAIProvider(BaseLLMProvider):
             before_sleep=before_sleep_log(logger, logging.WARNING),
         ):
             with attempt:
+                attempt_number = attempt.retry_state.attempt_number
                 t0 = time.perf_counter()
                 ttft_ms = None
 
@@ -415,6 +465,9 @@ class OpenAIProvider(BaseLLMProvider):
                     text=content.strip() if content else "",
                     duration_ms=duration_ms,
                     ttft_ms=ttft_ms,
+                    attempt=attempt_number,
+                    retry_reason="http" if attempt_number > 1 else None,
+                    effective_max_tokens=int(effective_max) if effective_max else None,
                 )
 
                 if final_usage:
@@ -462,7 +515,7 @@ class OpenAIProvider(BaseLLMProvider):
         if not has_linguistic_content(text):
             return LLMResponse(text=text)
 
-        context_block = self._build_context_block(
+        context_block, pack_ms = self._build_context_block(
             context, target_text=text, stage="draft"
         )
         current_system_prompt = self._render_system_prompt(context_block)
@@ -477,7 +530,9 @@ class OpenAIProvider(BaseLLMProvider):
             ],
             temperature=self.temperature,
             stage="draft",
+            source_text=text,
         )
+        res.pack_context_ms = pack_ms
         res.text = validate_llm_output(res.text, source=text, stage="draft")
         return res
 
@@ -485,18 +540,24 @@ class OpenAIProvider(BaseLLMProvider):
         self, draft_text: str, source_text: str, context: ContextData | None = None
     ) -> LLMResponse:
         """Generate a critique of the given draft."""
-        context_block = self._build_context_block(
+        context_block, pack_ms = self._build_context_block(
             context,
             target_text=source_text,
             stage="critique",
             draft_text=draft_text,
         )
         current_system_prompt = self._render_system_prompt(context_block)
+        prompt_profile = self._stage_policy("critique").prompt_profile
+        if isinstance(prompt_profile, PromptProfile):
+            prompt_profile_value = prompt_profile.value
+        else:
+            prompt_profile_value = str(prompt_profile)
 
         critique_prompt = self.prompt_manager.render(
             "critique",
             text=source_text,
             draft=draft_text,
+            prompt_profile=prompt_profile_value,
         )
 
         res = self._call_llm(
@@ -507,7 +568,9 @@ class OpenAIProvider(BaseLLMProvider):
             ],
             temperature=self.reflection_temperature,
             stage="critique",
+            source_text=source_text,
         )
+        res.pack_context_ms = pack_ms
         res.text = validate_llm_output(res.text, source=source_text, stage="critique")
         return res
 
@@ -519,7 +582,7 @@ class OpenAIProvider(BaseLLMProvider):
         context: ContextData | None = None,
     ) -> LLMResponse:
         """Apply critique to draft and return the refined translation."""
-        context_block = self._build_context_block(
+        context_block, pack_ms = self._build_context_block(
             context,
             target_text=source_text,
             stage="refine",
@@ -543,7 +606,9 @@ class OpenAIProvider(BaseLLMProvider):
             ],
             temperature=self.reflection_temperature,
             stage="refine",
+            source_text=source_text,
         )
+        res.pack_context_ms = pack_ms
         res.text = validate_llm_output(res.text, source=source_text, stage="refine")
         return res
 

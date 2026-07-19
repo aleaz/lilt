@@ -46,13 +46,17 @@ llm:
   chat_template_overhead: 48
   timeout: 600.0
   draft_empty_retries: 1   # Fast-fail on empty draft output (increase to retry)
-  context_window: 3         # Neighbor segments for context (int or per-stage dict)
+  context_window: 3         # Overlay on StagePolicy (int or per-stage dict)
+  cost_profile: balanced    # balanced | draft_only | strict
   translation_mode: workflow
   token_price_per_million: 5.0
   retry:
     max_attempts: 3
     min_wait_seconds: 2
     max_wait_seconds: 60
+
+tm:
+  durability: strict        # strict (fsync per append) | batched (fsync on finalize)
 
 parser:
   custom_macros: []         # Populated by `lilt project configure`
@@ -70,6 +74,7 @@ parser:
 ```yaml
 llm:
   reflection_enabled: true
+  cost_profile: balanced       # draft_only skips C/R; strict = reasoned critique
   prompt_dir: src/lilt/prompts    # Override Jinja templates
   stages:
     draft:
@@ -83,8 +88,8 @@ llm:
       model: gpt-4o-mini
   context_window:
     draft: 3
-    critique: 3
-    refine: 3
+    critique: 1
+    refine: 2
 ```
 
 #### Advanced Parser Options

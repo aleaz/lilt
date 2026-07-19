@@ -2,6 +2,7 @@
 
 from collections.abc import Generator
 from contextlib import contextmanager
+from typing import Any
 
 from lilt.exceptions import PreconditionError
 from lilt.models.segment import StoredSegment
@@ -16,11 +17,14 @@ def process_segment(
     active_segments: list[StoredSegment],
     *,
     is_last: bool,
+    timing: dict[str, Any] | None = None,
 ) -> Generator[StoredSegment]:
     """Run one segment mutation inside a durability boundary.
 
     On KeyboardInterrupt, restores the pre-mutation snapshot before persisting.
     On PreconditionError, rolls back and skips persistence to avoid duplicate TM lines.
+
+    If ``timing`` is provided, sets ``timing["checkpoint_ms"]`` after persistence.
     """
     snapshot = seg.model_copy(deep=True)
     persist = True
@@ -36,12 +40,14 @@ def process_segment(
         raise
     finally:
         if persist:
-            checkpoint.record_and_finalize_if_last(
+            ms = checkpoint.record_and_finalize_if_last(
                 namespace,
                 seg,
                 active_segments,
                 is_last_in_batch=is_last,
             )
+            if timing is not None:
+                timing["checkpoint_ms"] = ms
 
 
 def _restore_segment(
