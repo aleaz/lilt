@@ -75,9 +75,14 @@ class BaseReflectionStrategy:
         )
 
     def _flush_telemetry(self, checkpoint_ms: int | None = None) -> None:
-        for namespace, segment_id, stage, res, model_name, finish_reason in (
-            self._pending_telemetry
-        ):
+        for (
+            namespace,
+            segment_id,
+            stage,
+            res,
+            model_name,
+            finish_reason,
+        ) in self._pending_telemetry:
             if checkpoint_ms is not None:
                 res.checkpoint_ms = checkpoint_ms
             self._record_telemetry(

@@ -12,6 +12,7 @@ from typer.testing import CliRunner
 from lilt.cli.main import app
 from lilt.llm.base_provider import BaseLLMProvider
 from lilt.llm.provider import LLMResponse
+from lilt.llm.token_budget import BudgetPlan
 
 runner = CliRunner()
 
@@ -24,10 +25,32 @@ class DeterministicMockLLM(BaseLLMProvider):
         self.critique_model = "mock-critique"
         self.refine_model = "mock-refine"
         self.model = "mock-base"
+        self.model_context_limit = 8192
+        self.max_tokens = 1024
 
     @property
     def reflection_enabled(self) -> bool:
         return True
+
+    def plan_budget(
+        self,
+        *,
+        stage: str,
+        source_text: str,
+        draft_text: str = "",
+        critique_text: str = "",
+    ) -> BudgetPlan:
+        return BudgetPlan(
+            context_limit=self.model_context_limit,
+            reserved_output=self.max_tokens,
+            fixed_prompt_tokens=max(1, len(source_text) // 4),
+            neighbor_budget=6000,
+            safety_margin=64,
+            chat_template_overhead=0,
+            fudge=1.0,
+            ok=True,
+            infeasible=False,
+        )
 
     def generate_draft(self, text: str, context=None) -> LLMResponse:
         translated = text.replace("Hello", "Hola")

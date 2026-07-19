@@ -8,6 +8,7 @@ Global options (all commands):
 |------|-------------|
 | `-C, --work-dir PATH` | Project directory (default: `.`) |
 | `-d, --debug` | Enable debug logging to stdout and `.lilt/lilt.log` |
+| `--version` | Print installed package version (`latex-lilt`) and exit |
 
 ---
 

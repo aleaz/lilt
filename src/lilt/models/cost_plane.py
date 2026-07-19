@@ -66,12 +66,15 @@ class ReflectionCostPlane(BaseModel):
 
     @property
     def reflection_enabled(self) -> bool:
+        """Whether critique/refine stages are active for this profile."""
         return self.profile != CostProfileName.DRAFT_ONLY
 
     def context_windows(self) -> dict[str, int]:
+        """Neighbor window sizes keyed by stage name."""
         return {name: policy.context_window for name, policy in self.stages.items()}
 
     def stage(self, name: str) -> StagePolicy:
+        """Return policy for ``name``, or an empty default StagePolicy."""
         return self.stages.get(name, StagePolicy())
 
 

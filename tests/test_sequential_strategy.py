@@ -3,7 +3,22 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from lilt.core.translation import SequentialReflectionStrategy
+from lilt.llm.token_budget import BudgetPlan
 from lilt.models.segment import SegmentStatus, StoredSegment
+
+
+def _fake_budget_plan(**_kwargs) -> BudgetPlan:
+    return BudgetPlan(
+        context_limit=8192,
+        reserved_output=1024,
+        fixed_prompt_tokens=100,
+        neighbor_budget=6000,
+        safety_margin=64,
+        chat_template_overhead=0,
+        fudge=1.0,
+        ok=True,
+        infeasible=False,
+    )
 
 
 @pytest.fixture
@@ -15,6 +30,10 @@ def mock_tm():
 def mock_llm():
     llm = MagicMock()
     llm.get_prompt_version.return_value = "sequential:mock0000"
+    llm.model_context_limit = 8192
+    llm.max_tokens = 1024
+    llm.plan_budget.side_effect = _fake_budget_plan
+    llm.cost_plane = None
     return llm
 
 

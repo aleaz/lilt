@@ -4,6 +4,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from lilt.models.cost_plane import build_reflection_cost_plane
+
 
 class ProjectConfig(BaseModel):
     """Project-level settings (languages, build injections)."""
@@ -96,8 +98,6 @@ class LLMConfig(BaseModel):
 
     def build_cost_plane(self, *, durability: str = "strict") -> Any:
         """Resolve :class:`~lilt.models.cost_plane.ReflectionCostPlane` for this LLM block."""
-        from lilt.models.cost_plane import build_reflection_cost_plane
-
         return build_reflection_cost_plane(
             cost_profile=self.cost_profile,
             reflection_enabled=self.reflection_enabled,
@@ -105,6 +105,7 @@ class LLMConfig(BaseModel):
             durability=durability,
             stage_overrides=self.stage_policies,
         )
+
 
 class ParserIdentityConfig(BaseModel):
     """Sync identity carry-over threshold."""

@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/aleaz/lilt/blob/main/SECURITY.md
+    about: Report security issues privately — do not open a public issue.
+  - name: Documentation
+    url: https://github.com/aleaz/lilt/blob/main/docs/README.md
+    about: Read the docs hub before asking usage questions.
+  - name: Support policy
+    url: https://github.com/aleaz/lilt/blob/main/SUPPORT.md
+    about: Where to ask questions vs report bugs.

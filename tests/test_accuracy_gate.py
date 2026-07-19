@@ -1,11 +1,12 @@
 """Tests for deterministic AccuracyGate."""
 
+from lilt.llm.critique_parser import CritiqueParser
 from lilt.validation.accuracy_gate import AccuracyGate, placeholder_ref
 
 # Residual conflict segment from Gemma Thinking-Off baseline (13ea136e).
 _SOURCE_13EA = (
     '\\subsection<group_start id="5"/>Training Details<group_end id="5"/>\n'
-    "We train SBERT on the combination of the SNLI <cite id=\"2\"/> and the "
+    'We train SBERT on the combination of the SNLI <cite id="2"/> and the '
     'Multi-Genre NLI <cite id="1"/> dataset. The SNLI is a collection of '
     "570,000 sentence pairs annotated with the labels "
     '\\textit<group_start id="4"/>contradiction<group_end id="4"/>, '
@@ -62,8 +63,6 @@ def test_accuracy_gate_13ea136e_detects_macro_loss():
     payload = result.to_critique_json()
     assert '"requires_refine": true' in payload or '"requires_refine":true' in payload
     # Synthetic critique must be valid JSON (no raw double-quoted tags).
-    from lilt.llm.critique_parser import CritiqueParser
-
     parsed = CritiqueParser.try_parse(payload)
     assert parsed is not None
     assert parsed.requires_refine is True

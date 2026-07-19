@@ -15,7 +15,7 @@ from typing import Literal
 from lilt.llm.context_packer import pack_neighbor_context
 from lilt.llm.provider import LLMProvider
 from lilt.llm.router_provider import RouterLLMProvider
-from lilt.llm.token_budget import plan_token_budget
+from lilt.llm.token_budget import BudgetPlan, plan_token_budget
 from lilt.models.cost_plane import ReflectionCostPlane, build_reflection_cost_plane
 from lilt.models.segment import SegmentStatus, StoredSegment
 from lilt.utils.token_utils import count_tokens
@@ -58,6 +58,7 @@ class ContextLimitRecommendation:
 
     @property
     def worst_segment_ids(self) -> list[str]:
+        """Segment IDs that dominate capacity pressure across stages."""
         ids: list[str] = []
         for stage in self.stages.values():
             if stage.worst_segment_id and stage.worst_segment_id not in ids:
@@ -236,6 +237,8 @@ def recommend_context_limits(
                 draft_text=draft_proxy,
                 critique_text=critique_proxy,
             )
+            if not isinstance(plan, BudgetPlan):
+                continue
             backward, forward = _neighbor_sources(
                 ordered, idx, window=window, bidirectional=bidirectional
             )

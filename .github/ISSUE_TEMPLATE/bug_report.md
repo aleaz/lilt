@@ -24,8 +24,8 @@ If applicable, add screenshots or CLI logs to help explain your problem.
 **Environment (please complete the following information):**
 
 - OS: [e.g. macOS, Ubuntu]
-- Python version: [e.g. 3.12]
-- lilt version: [e.g. 0.1.0]
+- Python version: [e.g. 3.13]
+- lilt version: [e.g. output of `lilt --version`]
 
 **Additional context**
 Add any other context about the problem here.

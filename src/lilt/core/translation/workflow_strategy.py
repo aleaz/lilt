@@ -20,6 +20,7 @@ from lilt.core.translation.reflection_runtime import (
 )
 from lilt.core.translation.segment_uow import process_segment
 from lilt.exceptions import MultipleSegmentsFoundError, PreconditionError
+from lilt.llm.critique_gate import merge_critique_with_accuracy
 from lilt.llm.provider import LLMResponse
 from lilt.models.segment import (
     ReflectionMeta,
@@ -30,6 +31,7 @@ from lilt.models.segment import (
 from lilt.models.segment_policy import SegmentPolicy
 from lilt.models.status_resolver import StatusResolver
 from lilt.tm.segment_lookup import resolve_unique_segment
+from lilt.validation.accuracy_gate import AccuracyGate
 from lilt.validation.validators import SegmentTranslationValidator, ValidationError
 
 logger = logging.getLogger(__name__)
@@ -298,9 +300,6 @@ class WorkflowReflectionStrategy(BaseReflectionStrategy):
                 "Empty critique for segment %s; degrading via AccuracyGate.",
                 seg.id,
             )
-            from lilt.llm.critique_gate import merge_critique_with_accuracy
-            from lilt.validation.accuracy_gate import AccuracyGate
-
             empty = LLMResponse(text="", duration_ms=0)
             decision = merge_critique_with_accuracy(
                 AccuracyGate.evaluate(seg.source_text, draft_text),

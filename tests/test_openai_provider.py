@@ -294,9 +294,7 @@ def test_openai_provider_dynamic_token_accounting():
         "newest " * 100,
     ]
 
-    block, _pack_ms = provider._build_context_block(
-        context, target_text, stage="draft"
-    )
+    block, _pack_ms = provider._build_context_block(context, target_text, stage="draft")
 
     # Budget fits two most-recent backward neighbors; oldest is dropped.
     assert "newest " * 100 in block
@@ -327,9 +325,7 @@ def test_openai_provider_dynamic_token_accounting_zero_budget():
     target_text = "huge " * 150
     context = ["context " * 100]
 
-    block, _pack_ms = provider._build_context_block(
-        context, target_text, stage="draft"
-    )
+    block, _pack_ms = provider._build_context_block(context, target_text, stage="draft")
     assert block == ""
 
 

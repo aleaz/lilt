@@ -416,9 +416,7 @@ class OpenAIProvider(BaseLLMProvider):
                 total_prompt_tokens=total_prompt_tokens,
                 effective_max=effective_max,
             )
-            active_thinking = (
-                ThinkingMode.OFF if thinking_forced_off else thinking
-            )
+            active_thinking = ThinkingMode.OFF if thinking_forced_off else thinking
             try:
                 res = self._invoke_chat_completion(
                     model=model,
@@ -552,7 +550,9 @@ class OpenAIProvider(BaseLLMProvider):
                         response = self.client.chat.completions.create(**kwargs)  # type: ignore
                 except Exception as exc:
                     # Some servers return 400 for unknown fields instead of TypeError.
-                    if "reasoning_effort" in kwargs and _is_unsupported_param_error(exc):
+                    if "reasoning_effort" in kwargs and _is_unsupported_param_error(
+                        exc
+                    ):
                         logger.debug(
                             "Provider rejected reasoning_effort (%s); retrying without it",
                             exc,

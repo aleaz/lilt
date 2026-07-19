@@ -7,6 +7,7 @@ variables, and configures the global logging hierarchy.
 import logging
 import os
 import sys
+from importlib.metadata import PackageNotFoundError, version
 
 import typer
 from dotenv import load_dotenv
@@ -15,6 +16,11 @@ from lilt.cli.commands import pipeline, project, telemetry, tm
 from lilt.cli.ui import print_error
 from lilt.exceptions import LiltDomainError
 from lilt.services.workspace_context import WorkspaceContext
+
+try:
+    __version__ = version("latex-lilt")
+except PackageNotFoundError:  # pragma: no cover - editable/dev edge
+    __version__ = "0.0.0+unknown"
 
 app = typer.Typer(
     help="LILT: LaTeX Intelligent Localization Tool",
@@ -40,6 +46,13 @@ app.add_typer(
 )
 
 
+def _version_callback(value: bool) -> None:
+    """Print package version and exit when ``--version`` is passed."""
+    if value:
+        typer.echo(f"lilt {__version__}")
+        raise typer.Exit()
+
+
 @app.callback()
 def main(
     ctx: typer.Context,
@@ -47,6 +60,13 @@ def main(
         ".", "--work-dir", "-C", help="Target project directory"
     ),
     debug: bool = typer.Option(False, "--debug", "-d", help="Enable debug logging"),
+    version_flag: bool | None = typer.Option(
+        None,
+        "--version",
+        callback=_version_callback,
+        is_eager=True,
+        help="Show version and exit",
+    ),
 ) -> None:
     """LILT is an advanced AST-based localization engine for LaTeX.
 
@@ -54,7 +74,9 @@ def main(
         ctx: Typer context object injected automatically.
         work_dir: Target project directory where configuration and TM exist.
         debug: Flag to enable verbose debug logging and standard output handler.
+        version_flag: When true, print version and exit (handled by callback).
     """
+    _ = version_flag
     ctx.ensure_object(dict)
     workspace_dir = os.path.abspath(work_dir)
     ctx.obj["workspace_dir"] = workspace_dir

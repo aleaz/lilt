@@ -9,6 +9,7 @@ from lilt.services.preconditions import WorkspacePreconditions
 from lilt.telemetry.service import TelemetryService
 from lilt.tm.repository import TMRepository
 from lilt.utils.path_utils import path_is_under_workspace
+from lilt.utils.yaml_loader import load_yaml_config
 
 
 @dataclass
@@ -70,8 +71,6 @@ class WorkspaceContext:
         config_path = os.path.join(lilt_dir, "lilt.yaml")
         if os.path.isfile(config_path):
             try:
-                from lilt.utils.yaml_loader import load_yaml_config
-
                 raw = load_yaml_config(config_path)
                 durability = str(raw.get("tm", {}).get("durability", "strict"))
             except Exception:

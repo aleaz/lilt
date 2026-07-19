@@ -13,6 +13,9 @@
 
 ### Global Install (recommended)
 
+> **Not on PyPI as `lilt`.** That name is taken by another project. Install from
+> Git. The distribution name is `latex-lilt`; the CLI command remains `lilt`.
+
 ```bash
 uv tool install git+https://github.com/aleaz/lilt
 ```
@@ -79,7 +82,25 @@ lilt project init
 
 # 2. Discover custom macros (optional but recommended)
 lilt project configure .
+```
 
+### Configure LLM (required before translate)
+
+Edit `.lilt/lilt.yaml` so `llm.base_url` and `llm.model` point at an
+OpenAI-compatible server. Local example (LM Studio / Ollama):
+
+```yaml
+llm:
+  base_url: "http://localhost:1234/v1"
+  model: "your-model-id"
+  api_key_env: "OPENAI_API_KEY"   # often unused for local servers
+```
+
+For cloud providers, set the API key in `.lilt/.env` or a workspace `.env`
+(both are git-ignored). Details: [Configuration guide](guides/configuration.md).
+If translate fails immediately, see [Troubleshooting](runbooks/troubleshooting.md).
+
+```bash
 # 3. Parse source and populate Translation Memory
 lilt pipeline sync main.tex
 

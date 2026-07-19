@@ -14,8 +14,6 @@ def _seg(sid: str = "abcd1234ef01") -> StoredSegment:
         source_hash="a" * 64,
         translation="",
         status=SegmentStatus.GENERATED,
-        order=0,
-        file_path="a.tex",
     )
 
 

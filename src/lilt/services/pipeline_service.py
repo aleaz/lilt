@@ -101,7 +101,9 @@ class SyncOrchestrator:
         try:
             config = self.ctx.preconditions.load_config()
             plane = config.llm.build_cost_plane(durability=config.tm.durability)
-            llm_config = config.to_llm_factory_dict(workspace_dir=self.ctx.workspace_dir)
+            llm_config = config.to_llm_factory_dict(
+                workspace_dir=self.ctx.workspace_dir
+            )
             llm_config["reflection_enabled"] = plane.reflection_enabled
             llm_config["cost_profile"] = plane.profile.value
             llm = ProviderFactory.create(llm_config)

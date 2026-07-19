@@ -1,19 +1,20 @@
 """Tests for reflection cost plane and adaptive output budgets."""
 
+from lilt.models.config import LiltConfig, LLMConfig
 from lilt.models.cost_plane import (
     CostProfileName,
     DurabilityPolicy,
     PromptProfile,
+    StagePolicy,
+    ThinkingMode,
     adaptive_output_tokens,
     build_reflection_cost_plane,
     default_stage_policies,
 )
-from lilt.models.config import LLMConfig, LiltConfig
 
 
 def test_balanced_defaults_thinking_off():
     plane = build_reflection_cost_plane(cost_profile="balanced")
-    from lilt.models.cost_plane import ThinkingMode
 
     assert plane.stages["draft"].thinking == ThinkingMode.OFF
     assert plane.stages["critique"].thinking == ThinkingMode.OFF
@@ -25,7 +26,6 @@ def test_stage_policy_thinking_override():
         cost_profile="balanced",
         stage_overrides={"draft": {"thinking": "on"}},
     )
-    from lilt.models.cost_plane import ThinkingMode
 
     assert plane.stages["draft"].thinking == ThinkingMode.ON
     assert plane.stages["critique"].thinking == ThinkingMode.OFF
@@ -67,8 +67,6 @@ def test_context_window_dict_overlays_policy():
 
 
 def test_adaptive_output_tokens_caps_below_ceiling():
-    from lilt.models.cost_plane import StagePolicy
-
     policy = StagePolicy(output_multiplier=1.5, output_floor=256, output_margin=64)
     assert adaptive_output_tokens(100, ceiling=4096, policy=policy) == 256
     assert adaptive_output_tokens(2000, ceiling=4096, policy=policy) == 3064
@@ -76,8 +74,6 @@ def test_adaptive_output_tokens_caps_below_ceiling():
 
 
 def test_adaptive_output_tokens_floor_never_exceeds_ceiling():
-    from lilt.models.cost_plane import StagePolicy
-
     policy = StagePolicy(output_multiplier=2.0, output_floor=1536, output_margin=0)
     assert adaptive_output_tokens(10, ceiling=1024, policy=policy) == 1024
 
@@ -101,4 +97,6 @@ def test_lilt_config_builds_plane_with_tm_durability():
     root.tm.durability = "batched"
     plane = root.llm.build_cost_plane(durability=root.tm.durability)
     assert plane.durability == DurabilityPolicy.BATCHED
-    assert default_stage_policies(CostProfileName.BALANCED)["refine"].context_window == 2
+    assert (
+        default_stage_policies(CostProfileName.BALANCED)["refine"].context_window == 2
+    )
