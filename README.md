@@ -102,7 +102,7 @@ Deferred ideas: [appendix-deferred](docs/architecture/appendix-deferred.md).
 
 | Audience | Go to |
 |----------|--------|
-| **Users** | [Docs hub](docs/README.md) · [Getting started](docs/getting-started.md) · [Guides](docs/guides/workflows.md) · [FAQ](docs/faq.md) |
+| **Users** | [Docs hub](docs/README.md) · [Getting started](docs/getting-started.md) · [Quick Start](examples/quickstart/) · [Guides](docs/guides/workflows.md) · [FAQ](docs/faq.md) |
 | **Reference** | [CLI](docs/reference/cli.md) · [Config](docs/reference/config.md) |
 | **Architecture** | [Architecture](docs/architecture/README.md) · [Glossary](docs/glossary.md) |
 | **Developers** | [Developer Guide](docs/development/README.md) |

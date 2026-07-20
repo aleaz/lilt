@@ -1,0 +1,157 @@
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\newcommand{\term}[1]{\textit{#1}}
+\newcommand{\ctu}{content translation unit}
+\newcommand{\toolname}{localization engine}
+
+\title{Keeping Structure Intact When Localizing LaTeX}
+\author{Technical Notes}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Teams that maintain bilingual technical documents in \LaTeX{} face a recurring
+trade-off: machine translation is fast, but naive string replacement destroys
+equations, cross-references, and floats. This note argues for treating
+structure as a first-class constraint during localization. We sketch a
+simple integrity model, summarize practical failure modes, and outline a
+workflow in which prose is translated while markup remains under
+deterministic control.
+\end{abstract}
+
+\section{Motivation}
+\label{sec:motivation}
+
+A compiled paper is more than running text. Authors rely on stable labels,
+numbered equations, and captions that continue to point at the right
+objects after revision. When those documents must appear in a second
+language, the temptation is to paste whole files into a chat model and hope
+for the best. The model may produce fluent prose and still break the
+document: a missing brace, a rewritten \texttt{\textbackslash ref}, or a
+caption that no longer matches its float.
+
+Maintainers therefore need a different contract. The unit of work should be
+a \term{\ctu{}}---typically a paragraph or caption---while macros, math, and
+reference tokens are masked before the model sees the text and restored
+afterward.\footnote{Human review remains essential for terminology and tone;
+integrity checks only guarantee that structure survived the machine pass.}
+In practice this means a local \term{\toolname{}} can call an
+OpenAI-compatible endpoint without surrendering compile safety.
+
+Typical pressure points include:
+
+\begin{itemize}
+  \item Equations that must stay byte-identical across languages.
+  \item Captions whose wording changes while float labels must not.
+  \item Citations and page references that resolve only if keys survive.
+\end{itemize}
+
+Public discussion of continuous localization often focuses on strings in
+software UIs; the same integrity concerns apply to scholarly \LaTeX{}, as
+noted in recent operator notes~\cite{integrity2024}. For background on
+incremental memory-backed workflows, see~\cite{workflow2025}. Online
+tooling overviews are easy to find; one starting point is the
+\href{https://www.latex-project.org/}{\LaTeX{} Project} site.
+
+\section{An integrity sketch}
+\label{sec:model}
+
+Consider a source fragment that mixes prose with inline mathematics such as
+$E = mc^{2}$ and $\alpha + \beta = \gamma$. A safe pipeline extracts the
+linguistic span, replaces protected tokens with opaque placeholders, and
+asks the model only for the span. After validation, placeholders are mapped
+back so that display material is unchanged:
+
+\begin{equation}
+\label{eq:energy}
+E = mc^{2}
+\end{equation}
+
+Equation~\eqref{eq:energy} is deliberately elementary. The point is not the
+physics; it is that the rebuilt file must still contain the same tokens the
+compiler expects. Neighboring paragraphs may supply context to the model,
+but they must not become an invitation to rewrite labels or environments.
+
+\section{Observability for maintainers}
+\label{sec:observe}
+
+Operators need coarse signals before they accept a batch. Table~\ref{tab:signals}
+lists a minimal set of checks that catch the most expensive failures early.
+
+\begin{table}[ht]
+  \centering
+  \begin{tabular}{@{}ll@{}}
+    \toprule
+    Signal & Why it matters \\
+    \midrule
+    Placeholder multiset & Detects dropped or invented structure tags \\
+    Status gates & Prevents shipping unfinished machine drafts \\
+    Human locks & Protects reviewed wording from auto-overwrite \\
+    \bottomrule
+  \end{tabular}
+  \caption{Lightweight checks that keep localization batches compile-safe.}
+  \label{tab:signals}
+\end{table}
+
+The same discipline applies to figures. Figure~\ref{fig:pipeline} stands in
+for a pipeline diagram: prose in captions is fair game for translation;
+layout boxes and labels are not.
+
+\begin{figure}[ht]
+  \centering
+  \rule{0.72\linewidth}{2.4cm}
+  \caption{Schematic of a structure-preserving pass: parse, mask, translate
+    prose, validate, and rebuild. The shaded band represents protected
+    tokens that never enter the model as editable text.}
+  \label{fig:pipeline}
+\end{figure}
+
+After a rebuild, a maintainer should still be able to jump from
+Section~\ref{sec:motivation} to Equation~\eqref{eq:energy} and to the summary
+in Table~\ref{tab:signals} on page~\pageref{tab:signals}.
+
+\section{Working vocabulary}
+\label{sec:vocab}
+
+A short shared vocabulary reduces review friction:
+
+\begin{description}
+  \item[Segment] An atomic \ctu{} stored in translation memory with a stable
+    identifier and status.
+  \item[Placeholder] A masked token that stands for math, a reference, or
+    another protected construct during machine translation.
+\end{description}
+
+Together with the checks in Table~\ref{tab:signals}, this vocabulary keeps
+conversations focused on meaning rather than on recovering broken markup.
+
+\section{Closing}
+\label{sec:close}
+
+Localizing \LaTeX{} is feasible when integrity is enforced before fluency is
+celebrated. Masking, validation, and human priority turn a risky paste into
+a repeatable workflow. Teams that adopt that order spend less time repairing
+documents and more time improving the prose itself---which is the only part
+the reader was meant to notice.
+
+\begin{thebibliography}{9}
+\bibitem{integrity2024}
+  A.~Maintainers.
+  \newblock Integrity over fluency in structured localization.
+  \newblock \emph{Technical Note}, 2024.
+
+\bibitem{workflow2025}
+  A.~Maintainers.
+  \newblock Sync, translate, and rebuild without rewriting macros.
+  \newblock \emph{Operator Notes}, 2025.
+\end{thebibliography}
+
+\end{document}

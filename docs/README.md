@@ -19,6 +19,7 @@ started, guides, reference, runbooks, and development docs.
 ## Getting started
 
 - [Getting started](getting-started.md) — Quick Start: install, LLM, first sync→translate→build
+- [Official Quick Start example](../examples/quickstart/) — short technical note + walkthrough (~2–3 pages)
 - [First translation](guides/first-translation.md) — Expanded first successful workflow
 - [Concepts](concepts.md) — purpose, features, architecture overview (user view)
 - [FAQ](faq.md) — conceptual questions (not symptom encyclopedias)

@@ -10,7 +10,7 @@ Expanded walkthrough: [First translation](guides/first-translation.md). Hub: [Do
 |------|-------|
 | **Python 3.13+** | Required |
 | **`uv` or `pipx`** | Install the CLI |
-| **LaTeX sources** | A project directory with at least one `.tex` file |
+| **LaTeX sources** | A project directory with at least one `.tex` file — or use the [official Quick Start](../examples/quickstart/) |
 | **OpenAI-compatible LLM** | Required for `translate` (local or cloud) |
 | **TeX distribution** | Optional — only if you will compile PDF yourself |
 
@@ -100,6 +100,7 @@ lilt pipeline build main main.tex i18n/build/main.tex
 
 | Goal | Go to |
 |------|--------|
+| Official Quick Start (~2–3 page note) | [examples/quickstart](../examples/quickstart/) |
 | Same path with more explanation | [First translation](guides/first-translation.md) |
 | Resume, conflicts, multi-file, TM | [Workflows](guides/workflows.md) |
 | Human approve / export-import | [Human review](guides/human-review.md) |

@@ -48,7 +48,7 @@ Agents / AI-assisted work: [ai-contribution-guidelines.md](ai-contribution-guide
 | **Bug fix** | Repro steps; regression test; update L1/reference if Behavior or operator surface changed |
 | **Feature** | Fit existing CLI groups (`project` / `pipeline` / `tm` / `telemetry`); put logic in services/core; L1 Decision if tradeoff; same-PR docs; no new top-level verbs |
 | **Documentation** | Correct Diátaxis home; glossary SSOT; never mark [appendix-deferred](../architecture/appendix-deferred.md) items as shipped |
-| **Examples** | Prefer [guides](../guides/) / [getting-started](../getting-started.md) until a dedicated `examples/` tree ships — do not invent that tree |
+| **Examples** | Extend or keep honest [examples/quickstart](../../examples/quickstart/); do not invent parallel example trees or claim CI runs them |
 | **Tests** | Follow [testing.md](testing.md) patterns; no large empirical campaigns or corpora in this repo |
 | **Refactor** | Preserve Behavior; call out any CLI/config break (public beta may change, but be explicit) |
 | **Performance** | Prefer measurable changes (telemetry / existing runbooks); do not invent SLOs in docs |

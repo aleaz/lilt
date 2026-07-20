@@ -1,4 +1,4 @@
-.PHONY: format lint typecheck test check-all ci docs-sync-check
+.PHONY: format lint typecheck test check-all ci docs-sync-check config-doc-sync-check
 
 format:
 	uv run ruff format .
@@ -24,4 +24,8 @@ ci:
 # Warn-only doc sync vs origin/main (never fails; not part of `make ci`)
 docs-sync-check:
 	bash scripts/check-doc-sync.sh
+
+# Warn-only: LiltConfig field names vs docs/reference/config.md (never fails; not part of `make ci`)
+config-doc-sync-check:
+	bash scripts/check-config-doc-sync.sh
 
