@@ -103,6 +103,11 @@ def validate_counts(source_text: str, translated_text: str) -> None:
             if src_counts[tok] != tr_counts[tok]
         ]
         error_msg += f" Count mismatch ({'; '.join(diffs)})."
+    error_msg += (
+        " Next: `lilt tm status`; `lilt tm list NS --status conflict`; "
+        "re-run translate with `--force` for that segment, or "
+        "`lilt pipeline build ... --allow-partial` for a first look."
+    )
     raise ValueError(error_msg)
 
 

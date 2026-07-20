@@ -14,53 +14,23 @@ DEFAULT_CONFIG = {
         "source_lang": "English",
         "target_lang": "Spanish",
         "domain_context": "",
-        "domain_context_max_tokens": 512,
-        "injections": [],
-    },
-    "review": {
-        "queue_statuses": ["refined", "reviewed"],
     },
     "llm": {
         "provider": "openai",
-        "_INFO_MODELS": "Leave draft_model, critique_model, or refine_model empty to automatically fallback to the base 'model'.",
         "model": "local-model",
-        "draft_model": "",
-        "critique_model": "",
-        "refine_model": "",
         "base_url": "http://localhost:1234/v1",
-        "temperature": 0.3,
         "max_tokens": 4096,
         "model_context_limit": 8192,
-        "output_token_mode": "shared_budget",
-        "reasoning_reserve": 0,
-        "tokenizer_fudge": 1.1,
-        "chat_template_overhead": 48,
-        "timeout": 600.0,
-        "draft_empty_retries": 1,
-        "context_window": 3,
-        "translation_mode": "workflow",
-        # "prompt_dir": "src/lilt/prompts", # Optional: Override Jinja prompt templates
-        # reflection_temperature controls the Critique and Refine phases only.
-        # Keeping it at 0.0 (deterministic) ensures the critique is consistent
-        # and the refine pass strictly follows instructions rather than improvising.
-        # The Draft phase uses `temperature` above (default 0.3) for natural phrasing.
-        "reflection_temperature": 0.0,
-        "token_price_per_million": 5.0,
         "cost_profile": "balanced",
-        "retry": {
-            "max_attempts": 3,
-            "min_wait_seconds": 2,
-            "max_wait_seconds": 60,
-        },
     },
     "tm": {
         "durability": "strict",
     },
+    "review": {
+        "queue_statuses": ["refined", "reviewed"],
+    },
     "parser": {
         "custom_macros": [],
-        "identity": {
-            "similarity_threshold": 0.85,
-        },
         "block_transparent_macros": [
             "section",
             "namespace",
@@ -80,10 +50,32 @@ DEFAULT_CONFIG = {
 
 
 INIT_ADVANCED_COMMENTS = """
-# --- Advanced configuration (uncomment to enable) ---
+# --- Advanced configuration (uncomment / extend as needed) ---
+# project:
+#   domain_context_max_tokens: 512
+#   injections: []
 # llm:
+#   # Leave draft_model / critique_model / refine_model empty to fall back to model
+#   draft_model: ""
+#   critique_model: ""
+#   refine_model: ""
+#   temperature: 0.3
+#   reflection_temperature: 0.0
 #   reflection_enabled: true
-#   prompt_dir: src/lilt/prompts
+#   output_token_mode: shared_budget
+#   reasoning_reserve: 0
+#   tokenizer_fudge: 1.1
+#   chat_template_overhead: 48
+#   timeout: 600.0
+#   draft_empty_retries: 1
+#   context_window: 3
+#   translation_mode: workflow
+#   token_price_per_million: 5.0
+#   prompt_dir: null
+#   retry:
+#     max_attempts: 3
+#     min_wait_seconds: 2
+#     max_wait_seconds: 60
 #   stages:
 #     draft:
 #       model: local-model
@@ -92,13 +84,15 @@ INIT_ADVANCED_COMMENTS = """
 #       model: gpt-4o
 #     refine:
 #       model: gpt-4o-mini
-#   context_window:
-#     draft: 3
-#     critique: 3
-#     refine: 3
 # parser:
+#   identity:
+#     similarity_threshold: 0.85
 #   protected_terms: []
 #   opaque_environments: []
+#   block_transparent_macros:
+#     - section
+#     - subsection
+#     - abstract
 """
 
 

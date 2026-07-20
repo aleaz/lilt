@@ -235,6 +235,17 @@ class TranslationOrchestrator:
             if SegmentPolicy.is_eligible_for_workflow_stage(s, "draft", force)
         ]
         if not eligible:
+            blocked = [
+                s
+                for s in active
+                if s.status in (SegmentStatus.CONFLICT, SegmentStatus.ERROR)
+            ]
+            if blocked:
+                return (
+                    f"Done (idle: {len(blocked)} conflict/error segment(s) remain; "
+                    "inspect with `lilt tm list NS --status conflict` "
+                    "or build with `--allow-partial` for a first look)"
+                )
             return "Done (already translated)"
         return "Done"
 

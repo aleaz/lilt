@@ -30,12 +30,14 @@ You should finish knowing *why* LILT exists before reading architecture docs.
 **Not on PyPI as `lilt`** (that name is another project). Distribution package:
 `latex-lilt`. CLI command: `lilt`.
 
+**Tool install** (puts `lilt` on your PATH):
+
 ```bash
 uv tool install git+https://github.com/aleaz/lilt
 lilt --version
 ```
 
-From a clone of this repository (editable):
+**From a clone** (editable; use `uv run` — the binary is not on PATH until you activate the venv):
 
 ```bash
 cd /path/to/lilt
@@ -55,6 +57,9 @@ lilt project configure .    # discovers custom macros in main.tex
 Edit `.lilt/lilt.yaml`: set `project.source_lang` / `target_lang` and point
 `llm.base_url` / `llm.model` at your server. Put API keys only in `.lilt/.env`
 (gitignored)—never in this tree.
+
+Interrupted translates: **re-run** `lilt pipeline translate` (there is no separate
+`resume` command). Finished segments stay in the TM.
 
 ```bash
 lilt pipeline sync main.tex
@@ -82,6 +87,34 @@ pdflatex i18n/build/main.tex
 Default build is **fail-closed** until segments are buildable (`refined`,
 `reviewed`, `approved`, or `locked`).
 
+## If build refuses or translate reports conflicts
+
+Integrity checks can leave a segment in `conflict` or `error`. Then:
+
+1. Inspect: `lilt tm status` and `lilt tm list main --status conflict`
+2. Fix (re-translate with care) or take a first look with source fallback:
+
+```bash
+lilt pipeline build main main.tex i18n/build/main.tex --allow-partial
+```
+
+`--allow-partial` emits source text for unfinished segments and warns — useful
+to inspect structure, not a substitute for resolving conflicts.
+
+More: [Troubleshooting](../../docs/runbooks/troubleshooting.md) ·
+[Recovery](../../docs/runbooks/recovery.md).
+
+## What was created
+
+| Path | Role |
+|------|------|
+| `.lilt/lilt.yaml` | Workspace config (languages, LLM) |
+| `.lilt/.env` | Secrets template (gitignored) |
+| `.lilt/tm/` | Translation Memory (JSONL per namespace) |
+| `.lilt/lilt.log` | Debug log when using `--debug` |
+| `.lilt/telemetry.db` | Inference telemetry (optional inspect: `lilt telemetry show`) |
+| `i18n/build/main.tex` | Localized rebuild after `pipeline build` |
+
 ## What to compare
 
 Open `main.tex` (English) next to `i18n/build/main.tex` (target language):
@@ -89,6 +122,7 @@ Open `main.tex` (English) next to `i18n/build/main.tex` (target language):
 - Abstract and section prose should be translated.
 - Inline/display math, `\ref` / `\eqref` / `\pageref`, `\cite`, table/figure
   structure, footnote marker, and the hyperlink target should remain intact.
+- With `--allow-partial`, unfinished segments may still show English source.
 
 That contrast *is* the product value.
 

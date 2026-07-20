@@ -115,7 +115,11 @@ def translate(
         help="Override translation mode: workflow (batched stages) or sequential (depth-first per segment)",
     ),
 ) -> None:
-    """Translate pending segments in a namespace or globally."""
+    """Translate pending segments in a namespace or globally.
+
+    Interrupted runs: re-invoke translate (no separate resume command).
+    Finished segments stay in the TM.
+    """
     ctx.obj.get("workspace_dir", ".")
     service = _pipeline_service(ctx)
 
@@ -192,13 +196,34 @@ def translate(
         print_warning("\nTranslation interrupted by user. Progress has been saved.")
         raise typer.Exit(code=130) from None
 
+    remaining_blocked = 0
+    for ns in target_namespaces:
+        segments = service.ctx.repo.load_namespace(ns)
+        remaining_blocked += sum(
+            1
+            for s in segments.values()
+            if s.status in (SegmentStatus.CONFLICT, SegmentStatus.ERROR)
+        )
+
     if failures > 0:
         print_warning(
             f"Translation completed, but {failures} segment(s) encountered errors or conflicts."
         )
+        print_info(
+            "Next: `lilt tm status`; `lilt tm list NS --status conflict`; "
+            "or `lilt pipeline build ... --allow-partial` for a first look."
+        )
         raise typer.Exit(code=1) from None
-    else:
-        print_success("Translation completed successfully!")
+    if remaining_blocked > 0:
+        print_warning(
+            f"No new work ran, but {remaining_blocked} conflict/error segment(s) remain."
+        )
+        print_info(
+            "Next: `lilt tm list NS --status conflict`; "
+            "re-translate with `--force`, or build with `--allow-partial`."
+        )
+        raise typer.Exit(code=1) from None
+    print_success("Translation completed successfully!")
 
 
 @app.command()

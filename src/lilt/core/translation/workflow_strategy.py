@@ -57,6 +57,8 @@ class WorkflowReflectionStrategy(BaseReflectionStrategy):
     ) -> Iterable[dict]:
         """Execute the translation pipeline iteratively."""
         stages_to_run = ["draft", "critique", "refine"] if not stage else [stage]
+        if not stage and not self.llm.reflection_enabled:
+            stages_to_run = ["draft"]
 
         segments = self.tm.load_namespace(namespace)
         if segments:

@@ -79,6 +79,8 @@ lilt pipeline translate [NAMESPACE] [OPTIONS]
 | `--stage STAGE` | Workflow only: `draft`, `critique`, or `refine`. Critique requires `drafted`; refine requires `critiqued`. Use `--stage draft [--force]` then resume stages — do not expect `--force --stage refine` alone to re-draft |
 | `--mode MODE` | Override `translation_mode`: `workflow` or `sequential` |
 
+Interrupted runs: **re-invoke** `translate` (no separate resume command). Finished segments stay in the TM. If conflicts/errors remain after an idle run, the CLI exits non-zero and points at `tm list --status conflict` / `build --allow-partial`.
+
 Examples:
 
 ```bash

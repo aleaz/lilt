@@ -36,7 +36,18 @@ Edit `.lilt/lilt.yaml` (`llm.base_url`, `llm.model`, languages). Put cloud keys 
 
 ## Can I resume a failed or interrupted translation?
 
-Yes. Re-run `lilt pipeline translate` (or `--all`). Finished segments stay in the TM. Details: [Workflows — resume](guides/workflows.md#scenario-resume-an-interrupted-translation) and [Recovery](runbooks/recovery.md#interrupted-translation).
+Yes. Re-run `lilt pipeline translate` (or `--all`). There is **no** separate `resume` command. Finished segments stay in the TM. Details: [Workflows — resume](guides/workflows.md#scenario-resume-an-interrupted-translation) and [Recovery](runbooks/recovery.md#interrupted-translation).
+
+## How do I reset / clean machine translations?
+
+To put machine-translated segments back to `generated` (clears MT text; human `reviewed` / `approved` need `--force`):
+
+```bash
+lilt tm admin reset NAMESPACE
+# lilt tm admin reset NAMESPACE --force
+```
+
+See [CLI reference — tm admin reset](reference/cli.md) and [Workflows — TM](guides/workflows.md#scenario-manage-translation-memory).
 
 ## How does Translation Memory work?
 

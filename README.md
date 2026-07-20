@@ -56,8 +56,11 @@ More: [Concepts](docs/concepts.md). Runtime detail: [Architecture](docs/architec
 
 Requires **Python 3.13+**, [`uv`](https://docs.astral.sh/uv/) or pipx, and an **OpenAI-compatible LLM** before `translate`.
 
+Prefer the official sample: [`examples/quickstart/`](examples/quickstart/).
+
 ```bash
 # Install (Git only — do not use `pip install lilt`)
+# Tool install puts `lilt` on your PATH. From a clone, use `uv run lilt` instead.
 uv tool install git+https://github.com/aleaz/lilt
 
 cd your-latex-project
@@ -74,7 +77,7 @@ lilt pipeline build main main.tex i18n/build/main.tex
 # Success: i18n/build/main.tex exists. Compile PDF yourself if needed.
 ```
 
-Full walkthrough: [Getting started](docs/getting-started.md) · [First translation](docs/guides/first-translation.md).
+Full walkthrough: [Getting started](docs/getting-started.md) · [First translation](docs/guides/first-translation.md) · [Quick Start example](examples/quickstart/).
 
 ## Common use cases
 
