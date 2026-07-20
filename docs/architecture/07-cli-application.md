@@ -39,6 +39,7 @@ Global CLI options:
 |------|-------------|
 | `-C, --work-dir` | Run as if started in given directory |
 | `--debug` | Verbose logging to `.lilt/lilt.log` |
+| `--version` | Print installed package version (`latex-lilt`) and exit |
 
 ## Data flow
 
@@ -84,7 +85,7 @@ PDF compilation is **not** a CLI command. `PdfCompileService` (via
 | `ProjectService` | Init, config load/save, configure / dry-run analyze |
 | `PipelineService` | Sync, translate, build, review, edit |
 | `PdfCompileService` | Service-only `pdflatex`/bib compilation helper |
-| `TMService` | List, search, export, import, stats, prune |
+| `TMService` | List, search, export, import, stats, `context_budget` (`tm budget`), prune |
 | `WorkspaceContext` | Wire config path, TM repo, lazy `TelemetryService` |
 
 ## Decisions

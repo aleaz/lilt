@@ -9,7 +9,9 @@ Pointer file for AI coding agents (Cursor, Antigravity, and others).
 2. Git discipline: [`.cursor/rules/lilt-git-agent.mdc`](.cursor/rules/lilt-git-agent.mdc)
 3. Documentation hub: [`docs/README.md`](docs/README.md)
 4. Deep product docs (L1): [`docs/architecture/README.md`](docs/architecture/README.md)
-5. Dev lifecycle skill: [`.cursor/skills/lilt-dev/SKILL.md`](.cursor/skills/lilt-dev/SKILL.md)
+5. Canonical vocabulary: [`docs/architecture/00-glossary.md`](docs/architecture/00-glossary.md) (redirect: [`docs/glossary.md`](docs/glossary.md))
+6. Naming / terminology rules: [`docs/development/language-guidelines.md`](docs/development/language-guidelines.md)
+7. Dev lifecycle skill: [`.cursor/skills/lilt-dev/SKILL.md`](.cursor/skills/lilt-dev/SKILL.md)
 
 Scoped rules (auto when editing those paths):
 

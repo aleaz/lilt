@@ -49,7 +49,9 @@ Database: `.lilt/telemetry.db`, managed by `TelemetryService` (lazy singleton on
 
 **Table `inference_records`:** per call — `segment_id`, `namespace`, `provider`,
 `model`, `stage`, token counts, duration, `is_heuristic_simple` (bypass flag),
-`attempt`, `retry_reason` (`http` / `validation` / `draft_empty`),
+`attempt`, `retry_reason` (examples: `http`, `validation`, `draft_empty`,
+`accuracy_gate_forced_refine`, `critique_parse_degraded`, `critique_parse_repaired`,
+`critique_json`, `thinking_disabled`, `reasoning_budget`),
 `pack_context_ms`, `checkpoint_ms`, `effective_max_tokens`.
 
 **Views:** `stage_metrics`, `workflow_metrics` (exposed in `lilt telemetry show` as Workflow Summary).

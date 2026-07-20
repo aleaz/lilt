@@ -38,10 +38,13 @@ lilt pipeline edit main <segment_id>
 lilt tm list main --status conflict
 lilt tm list main --id <segment_id>
 lilt tm status main
+lilt tm budget main
 
 # 5. Build translated .tex (PDF is manual)
 mkdir -p i18n/build
 lilt pipeline build main main.tex i18n/build/main.tex
+# Fail-closed by default; WIP documents may pass --allow-partial
+# lilt pipeline build main main.tex i18n/build/main.tex --allow-partial
 cd i18n/build && pdflatex main.tex   # or latexmk — not a lilt CLI command
 
 # 6. TM maintenance

@@ -1,8 +1,19 @@
 # CLI reference
 
-Canonical user-facing CLI surface. Service-layer invariants: [07-cli-application](../architecture/07-cli-application.md).
+| | |
+|---|---|
+| **Purpose** | Authoritative catalog of user-facing CLI commands and flags |
+| **Scope** | What the Typer surface does — not tutorials, not L1 rationale |
+| **Audience** | Operators, contributors, AI agents syncing docs to code |
+| **SSOT** | Implementation in `src/lilt/cli/`; this file must match Typer |
 
-Global options (all commands):
+Service-layer invariants: [07-cli-application](../architecture/07-cli-application.md).  
+Config keys: [Configuration reference](config.md).  
+First-time walkthrough: [Getting started](../getting-started.md) · [First translation](../guides/first-translation.md).
+
+## Global options
+
+Apply to all commands:
 
 | Flag | Description |
 |------|-------------|
@@ -83,8 +94,16 @@ lilt pipeline translate main --mode sequential
 Reconstruct a translated `.tex` file from the TM.
 
 ```bash
-lilt pipeline build NAMESPACE INPUT_FILE OUTPUT_FILE
+lilt pipeline build NAMESPACE INPUT_FILE OUTPUT_FILE [--allow-partial]
 ```
+
+| Option | Description |
+|--------|-------------|
+| `--allow-partial` | Emit source text for segments that lack a buildable translation instead of failing |
+
+**Default (fail-closed):** build raises if any translatable segment is missing from the TM, has no translation, or is in a non-buildable status (`generated`, `drafted`, `critiqued`, `conflict`, `error`). Buildable statuses are `refined`, `reviewed`, `approved`, and `locked`.
+
+With `--allow-partial`, those segments fall back to source `raw_text` and the CLI warns with the skipped segment IDs.
 
 #### `pipeline review`
 
@@ -133,6 +152,21 @@ Translation progress and token/cost metrics per namespace.
 lilt tm status [NAMESPACE] [--all]
 ```
 
+| Option | Description |
+|--------|-------------|
+| `NAMESPACE` | Single-namespace dashboard |
+| `--all, -a` | Consolidated stats for all namespaces |
+
+#### `tm budget`
+
+Recommend `model_context_limit` from post-sync TM size and StagePolicy context windows (draft / critique / refine).
+
+```bash
+lilt tm budget NAMESPACE
+```
+
+Prints per-stage `min_bare`, `min_full_neighbors`, `max_useful`, configured vs recommended limits, and a capacity verdict. See [05-llm-layer](../architecture/05-llm-layer.md) and [Configuration reference](config.md) (`model_context_limit`, `stage_policies`).
+
 #### `tm set-status`
 
 Explicitly change a segment lifecycle status.
@@ -141,7 +175,9 @@ Explicitly change a segment lifecycle status.
 lilt tm set-status NAMESPACE SEGMENT_ID STATUS [--force]
 ```
 
-`--force` allows reset to `GENERATED` (clears translation and LLM artifacts) and modifications to `locked` segments.
+| Option | Description |
+|--------|-------------|
+| `--force` | Allow reset to `GENERATED` (clears translation and LLM artifacts) and modifications to `locked` segments |
 
 #### `tm export`
 
@@ -151,6 +187,10 @@ Export active segments to CSV or JSON.
 lilt tm export NAMESPACE OUTPUT_FILE [--format csv|json]
 ```
 
+| Option | Description |
+|--------|-------------|
+| `--format` | `csv` or `json` (inferred from extension when omitted) |
+
 #### `tm import`
 
 Import translations from CSV or JSON. Updates segments to `reviewed` on translation change.
@@ -158,6 +198,10 @@ Import translations from CSV or JSON. Updates segments to `reviewed` on translat
 ```bash
 lilt tm import NAMESPACE INPUT_FILE [--format csv|json]
 ```
+
+| Option | Description |
+|--------|-------------|
+| `--format` | `csv` or `json` (inferred from extension when omitted) |
 
 #### `tm admin prune`
 
@@ -175,6 +219,10 @@ Skip corrupt JSONL lines, backup the original file, and compact the namespace.
 lilt tm admin repair NAMESPACE [--dry-run]
 ```
 
+| Option | Description |
+|--------|-------------|
+| `--dry-run` | Report corrupt lines without rewriting the namespace file |
+
 #### `tm admin reset`
 
 Reset machine-translated segments to `generated`. With `--force`, also resets `reviewed` and `approved`.
@@ -182,6 +230,10 @@ Reset machine-translated segments to `generated`. With `--force`, also resets `r
 ```bash
 lilt tm admin reset NAMESPACE [--force]
 ```
+
+| Option | Description |
+|--------|-------------|
+| `--force` | Also reset `reviewed` and `approved` (human statuses) |
 
 ---
 
@@ -195,4 +247,17 @@ Display LLM inference records (tokens, latency, model, stage).
 lilt telemetry show [--namespace NS]
 ```
 
+| Option | Description |
+|--------|-------------|
+| `--namespace` | Filter records to one TM namespace |
+
 ---
+
+## See also
+
+| Document | Role |
+|----------|------|
+| [Configuration reference](config.md) | `lilt.yaml` / env keys |
+| [07-cli-application](../architecture/07-cli-application.md) | Services and CLI invariants |
+| [Getting started](../getting-started.md) | Tutorial (how to learn) |
+| [Glossary](../architecture/00-glossary.md) | Canonical terms |

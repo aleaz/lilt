@@ -41,6 +41,8 @@ Ten statuses and the canonical state machine live in
 
 ## See also
 
+- [First translation](first-translation.md)
 - [Workflows](workflows.md)
+- [Advanced usage](advanced-usage.md)
 - [CLI reference](../reference/cli.md)
 - [02-persistence](../architecture/02-persistence.md)

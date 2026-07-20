@@ -1,53 +1,32 @@
 # Contributing to LILT
 
-First off, thank you for considering contributing to `lilt`! It's people like you that make open source such a fantastic community.
+Thank you for considering a contribution.
 
-## 1. Development Environment
+**Start here:** [Contributor Guide](docs/development/contributor-guide.md) — expectations, setup pointers, contribution types, and how to avoid common mistakes.
 
-This project strictly uses `uv` for dependency management and Python toolchains.
-Ensure you have `uv` installed (`curl -LsSf https://astral.sh/uv/install.sh | sh`).
+| Need | Document |
+|------|----------|
+| End-to-end process (branch → PR → release honesty) | [Contribution workflow](docs/development/contribution-workflow.md) |
+| Author self-check | [Pull request checklist](docs/development/pull-request-checklist.md) |
+| What reviewers verify | [Code review guidelines](docs/development/code-review-guidelines.md) |
+| AI-assisted PRs | [AI contribution guidelines](docs/development/ai-contribution-guidelines.md) |
+| Engineering handbook (setup, layout, tests, philosophy) | [docs/development/README.md](docs/development/README.md) |
 
-1. Clone the repository: `git clone https://github.com/aleaz/lilt`
-2. Sync the environment: `uv sync`
-3. Activate the virtual environment (if needed by your IDE): `source .venv/bin/activate`
+## Quick start
 
-## 2. Testing and Standards
+1. Install [`uv`](https://docs.astral.sh/uv/) (`curl -LsSf https://astral.sh/uv/install.sh | sh`).
+2. `git clone https://github.com/aleaz/lilt` → `uv sync` → optional `source .venv/bin/activate`.
+3. Before a PR: run **`make ci`** (matches [`.github/workflows/ci.yml`](.github/workflows/ci.yml)). Local auto-format/fix first: `make check-all`.
 
-We strictly enforce formatting, linting, and static typing.
+Detail: [docs/development/overview.md](docs/development/overview.md).
 
-Before submitting a Pull Request, you **must** run our QA checks locally:
-
-```bash
-make check-all
-```
-
-This will automatically format your code (`ruff format`), lint it (`ruff check`), run strict static type checking (`mypy`), and execute all unit tests (`pytest`). `check-all` may modify files in place (format and auto-fix).
-
-For a **non-mutating** check that matches CI (no auto-format or auto-fix), run:
-
-```bash
-make ci
-```
-
-GitHub Actions runs `make ci` on every push to `main`/`master` and on pull requests (see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
-
-## 3. Architecture Guides
-
-Significant architectural changes (TM schema, masking taxonomy, new core commands) must be documented in the relevant guide under `docs/architecture/`. Read [docs/architecture/README.md](docs/architecture/README.md) before proposing major design changes.
-
-User-facing docs (getting started, guides, CLI/config reference, runbooks) live under [docs/README.md](docs/README.md). Update those when the operator-facing interface changes. Agents: follow the path → docs matrix in [`.cursor/rules/lilt-architecture.mdc`](.cursor/rules/lilt-architecture.mdc); optional warn-only check `make docs-sync-check`.
-
-## 4. Pull Request Process
-
-1. Ensure your code conforms to the style guides (`make check-all` or `make ci` must pass).
-2. Update [docs/](docs/README.md) (and L1 guides when behavior changes) with details of interface or runtime changes, if applicable.
-3. CI runs `make ci` via [`.github/workflows/ci.yml`](.github/workflows/ci.yml); verify locally before opening a PR.
-
-## 5. Large-Scale Empirical Tests
+## Large-scale empirical tests
 
 If you run large-scale experiments on real books or papers, keep generated workspaces, PDFs, and campaign artifacts **outside** this repository (for example under a private sibling directory or a separate evaluation repo). Do not commit evaluation sandboxes, corpus downloads, or model traces here. This repository ships the localization engine and its unit/CLI tests only.
 
-## 6. Optional: AI assistant setup
+## Optional: AI assistant setup
+
+Process rules for AI-assisted contributions: [AI contribution guidelines](docs/development/ai-contribution-guidelines.md). Agent orientation: [AI engineering guide](docs/development/ai-engineering-guide.md).
 
 **Canonical AI context for this repo (versioned in git):**
 
@@ -83,11 +62,11 @@ When architecture, product boundary, CLI surface, or CI validation commands chan
 3. Keep scoped rules ([parser](.cursor/rules/lilt-parser-masking.mdc), [TM](.cursor/rules/lilt-tm-lifecycle.mdc)) aligned when those domains change.
 4. Update [`.cursor/skills/lilt-dev/SKILL.md`](.cursor/skills/lilt-dev/SKILL.md) only if it mentions the changed behavior explicitly.
 5. Update [`AGENTS.md`](AGENTS.md) only if SSOT paths or hard stops change (keep it pointer-only).
-6. Update this file and the PR template if the human checklist changes; update the matching L1 guide under `docs/architecture/` when runtime behavior changes; update [docs/reference/](docs/reference/cli.md) / guides when the operator CLI or config surface changes.
+6. Update the [contribution pack](docs/development/contributor-guide.md) / [PR checklist](docs/development/pull-request-checklist.md) and [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md) if the human checklist changes; update the matching L1 guide under `docs/architecture/` when runtime behavior changes; update [docs/reference/](docs/reference/cli.md) / guides when the operator CLI or config surface changes.
 7. If you use Antigravity locally, sync any local memory file from step 1.
 
-Do not add duplicate checklists to the skill — link to this file instead.
+Do not add duplicate checklists to the skill — link the contribution pack instead.
 Do not add generic always-on Cursor rules (benchmark prompts, web-app templates); they contradict LILT invariants.
-CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) is the objective final check; keep it aligned with the Testing and Standards section above.
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) is the objective final check; keep it aligned with [overview](docs/development/overview.md) quality commands.
 
 If you do **not** use Antigravity, you can remove local AG Kit with `rm -rf .agents/ .temp_ag_kit` to reduce editor noise.

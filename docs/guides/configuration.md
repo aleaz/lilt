@@ -4,7 +4,9 @@ Operator-oriented configuration. Full schema: [Configuration reference](../refer
 
 ## Workspace layout
 
-See [Getting started](../getting-started.md#workspace-layout).
+See [Getting started](../getting-started.md#workspace-layout-reference).
+
+For modes, budget, and automation after first success: [Advanced usage](advanced-usage.md).
 
 ## LLM topologies
 

@@ -59,8 +59,8 @@ Groups: `project`, `pipeline`, `tm` (+ `tm admin`), `telemetry`.
 Shipped commands (do not invent aliases as if they were top-level):
 
 - `project init` | `project configure` (`--dry-run` for analyze-only)
-- `pipeline sync` | `translate` | `build` | `review` | `edit`
-- `tm list` | `status` | `set-status` | `export` | `import`
+- `pipeline sync` | `translate` | `build` (`--allow-partial`) | `review` | `edit`
+- `tm list` | `status` | `budget` | `set-status` | `export` | `import`
 - `tm admin prune` | `repair` | `reset`
 - `telemetry show`
 

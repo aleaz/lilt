@@ -43,7 +43,8 @@ lilt project init
 lilt project configure [--dry-run]
 lilt pipeline sync <input.tex>
 lilt pipeline translate [namespace] [--all] [--mode workflow|sequential]
-lilt pipeline build <namespace> <input.tex> <output.tex>
+lilt tm budget <namespace>
+lilt pipeline build <namespace> <input.tex> <output.tex> [--allow-partial]
 ```
 
 Human review loop: `lilt pipeline review` then `lilt pipeline edit`.

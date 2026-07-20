@@ -37,6 +37,11 @@ i18n/build/
 # Internal performance measurement / audit notes (not product docs)
 docs/PERFORMANCE_*.md
 
+# Temporary discovery / doc-process working papers (not product docs)
+docs/discovery/
+docs/internal/
+docs/archive/
+
 # LaTeX build artifacts
 *.aux
 *.log

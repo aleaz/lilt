@@ -1,5 +1,17 @@
 # Configuration reference
 
+| | |
+|---|---|
+| **Purpose** | Authoritative catalog of workspace config keys (`lilt.yaml`, env) |
+| **Scope** | What each key does — not LLM topology tutorials |
+| **Audience** | Operators and agents editing `.lilt/lilt.yaml` |
+| **SSOT** | `src/lilt/models/config.py` (`LiltConfig` and nested models) |
+
+How-to topologies: [Configuration guide](../guides/configuration.md).  
+CLI that consumes config: [CLI reference](cli.md).  
+Platform layout: [01-platform](../architecture/01-platform.md).  
+Cost / context plane: [05-llm-layer](../architecture/05-llm-layer.md).
+
 ## Environment variables
 
 Loaded automatically from `.env` and `.lilt/.env` at CLI startup:
@@ -8,7 +20,7 @@ Loaded automatically from `.env` and `.lilt/.env` at CLI startup:
 OPENAI_API_KEY=sk-...
 ```
 
-Any OpenAI-compatible provider that needs a key can use `OPENAI_API_KEY` or per-stage `api_key` / `${VAR}` entries in `llm.stages`.
+Any OpenAI-compatible provider that needs a key can use `OPENAI_API_KEY`, top-level `llm.api_key`, or per-stage `api_key` / `${VAR}` entries in `llm.stages`.
 
 YAML supports `${VAR}` substitution via `yaml_loader` (unset variables fail fast).
 
@@ -36,9 +48,10 @@ llm:
   critique_model: ''
   refine_model: ''
   base_url: http://localhost:1234/v1
+  api_key: null             # Optional; prefer env / ${VAR}; also valid per llm.stages.*.api_key
   temperature: 0.3          # Draft phase creativity
   reflection_temperature: 0.0   # Critique and Refine (deterministic)
-  max_tokens: 4096          # Must be < model_context_limit
+  max_tokens: 4096          # Must be < model_context_limit (see validator)
   model_context_limit: 8192 # Match serving n_ctx; use 32768 for real reflection+neighbors (8192 = smoke)
   output_token_mode: shared_budget  # default; use split_budget + reasoning_reserve when server thinking may be on
   reasoning_reserve: 0      # packing reserve only (not "think N tokens"); used with split_budget
@@ -48,13 +61,12 @@ llm:
   draft_empty_retries: 1   # Fast-fail on empty draft output (increase to retry)
   context_window: 3         # Overlay on StagePolicy (int or per-stage dict)
   cost_profile: balanced    # balanced | draft_only | strict
-  # Optional per-stage overrides (floors, windows, thinking hint):
-  # stage_policies:
-  #   draft:    { thinking: off }     # off | on | minimal (best-effort to API)
-  #   critique: { thinking: off }     # distinct from prompt_profile reasoned_gate
-  #   refine:   { thinking: off }
+  reflection_enabled: true  # Forced false when cost_profile is draft_only
   translation_mode: workflow
   token_price_per_million: 5.0
+  stage_policies: null      # Optional per-stage overrides (see below)
+  prompt_dir: null          # Optional override for Jinja prompt package path
+  stages: null              # Optional per-stage provider/model/base_url/api_key
   retry:
     max_attempts: 3
     min_wait_seconds: 2
@@ -74,9 +86,34 @@ parser:
     # ... (see init template for full list)
 ```
 
+### `llm.stage_policies`
+
+Optional map of stage name → overrides applied when building the reflection cost plane (`LLMConfig.build_cost_plane` → `stage_overrides`).
+
+Typical keys (see [05-llm-layer](../architecture/05-llm-layer.md) for StagePolicy fields):
+
+| Key | Meaning |
+|-----|---------|
+| `thinking` | Best-effort API hint: `off` \| `on` \| `minimal` (maps toward `reasoning_effort`) |
+| `context_window` | Per-stage neighbor window override |
+| Other StagePolicy floors | Output budgets / prompt profile fields as supported by the cost plane |
+
+Example:
+
+```yaml
+llm:
+  cost_profile: balanced
+  stage_policies:
+    draft:    { thinking: off }
+    critique: { thinking: off }   # distinct from prompt_profile reasoned_gate
+    refine:   { thinking: off }
+```
+
+Use `lilt tm budget NAMESPACE` after sync to check whether `model_context_limit` fits StagePolicy windows ([CLI reference](cli.md#tm-budget)).
+
 #### Thinking / reasoning (server vs prompt)
 
-- **Server thinking** (`stage_policies.*.thinking`): best-effort API hint (`reasoning_effort`). Default `off` for all stages under `balanced`. Does not replace LM Studio’s Enable Thinking toggle when the server ignores the field — still verify with a smoke call (`reasoning_tokens == 0`).
+- **Server thinking** (`stage_policies.*.thinking`): best-effort API hint. Default `off` for all stages under `balanced`. Does not replace LM Studio’s Enable Thinking toggle when the server ignores the field — still verify with a smoke call (`reasoning_tokens == 0`).
 - **`prompt_profile: reasoned_gate`**: only used by `cost_profile: strict` for critique; asks the model for a `<reasoning>` block in the *prompt*. Unrelated to LM Studio Thinking.
 - Capacity tiers (24GB+MoE vs dense, 48GB, Spark, cloud): see [docs/runbooks/performance.md](../runbooks/performance.md).
 
@@ -116,5 +153,10 @@ parser:
 
 ## See also
 
-- [Configuration guide](../guides/configuration.md)
-- [01-platform](../architecture/01-platform.md)
+| Document | Role |
+|----------|------|
+| [Configuration guide](../guides/configuration.md) | How-to LLM topologies |
+| [CLI reference](cli.md) | Commands including `tm budget` |
+| [01-platform](../architecture/01-platform.md) | Workspace layout |
+| [05-llm-layer](../architecture/05-llm-layer.md) | Cost plane / StagePolicy explanation |
+| [Performance runbook](../runbooks/performance.md) | Operator tuning |

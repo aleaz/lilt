@@ -178,6 +178,17 @@ When code and prose disagree, **code wins**; update documentation to match.
 | **Alternative names** | "Review phases" for critique/refine (incorrect) |
 | **Recommendation** | **Keep** both terms; never use "review" for LLM critique |
 
+### AccuracyGate
+
+| | |
+|---|---|
+| **Definition** | Deterministic placeholder/syntax check on a draft before editorial critique owns the decision |
+| **Responsibility** | Force refine or accept-draft when critique JSON is empty/unusable; override soft editorial accept when structure fails |
+| **Relationships** | Merged with critique via `merge_critique_with_accuracy`; uses `SegmentTranslationValidator` |
+| **Code example** | `validation/accuracy_gate.py`, `llm/critique_gate.py` |
+| **Alternative names** | accuracy gate, structural gate |
+| **Recommendation** | **Keep** |
+
 ### Conflict vs Error
 
 | | |
@@ -213,6 +224,102 @@ When code and prose disagree, **code wins**; update documentation to match.
 
 ---
 
+## Workspace, project, and documents
+
+### Workspace
+
+| | |
+|---|---|
+| **Definition** | Directory that contains `.lilt/` (config, TM, telemetry) beside LaTeX sources |
+| **Responsibility** | Bounds sandbox paths and operator `-C` / cwd |
+| **Relationships** | Initialized by `project init`; wired by Workspace Context |
+| **Code example** | Work-dir resolution in CLI / `WorkspaceContext` |
+| **Alternative names** | project root (informal), work dir |
+| **Recommendation** | **Keep**; do not synonymize with Workspace Context |
+
+### Project (CLI)
+
+| | |
+|---|---|
+| **Definition** | CLI group `lilt project` for init/configure of a Workspace |
+| **Responsibility** | Creates `.lilt/` artifacts; discovers macros into config |
+| **Relationships** | Operates on a LaTeX **source tree** (user’s paper/book), not a separate product DB |
+| **Code example** | `cli/commands/project.py` |
+| **Alternative names** | “LILT project” (ok); avoid “Project” for Namespace |
+| **Recommendation** | **Keep** |
+
+### Source document / `.tex` file
+
+| | |
+|---|---|
+| **Definition** | A LaTeX file on disk (often with `\input` dependencies) |
+| **Responsibility** | Input to Sync; root file discovers the dependency graph |
+| **Relationships** | Maps to one or more Namespaces (encoded paths) |
+| **Code example** | Sync input path; `DependencyResolver` |
+| **Alternative names** | document, chapter file |
+| **Recommendation** | **Keep**; never call a Namespace a “document” in new docs |
+
+### Configuration
+
+| | |
+|---|---|
+| **Definition** | Typed settings loaded from `.lilt/lilt.yaml` (+ env / `${VAR}`) |
+| **Responsibility** | Languages, LLM endpoints, policies, parser options |
+| **Relationships** | Schema `LiltConfig`; operator guide vs reference |
+| **Code example** | `models/config.py`, `.lilt/lilt.yaml` |
+| **Alternative names** | settings, yaml (informal) |
+| **Recommendation** | **Keep**; prefer “configuration” / `LiltConfig` over vague “settings” |
+
+---
+
+## Build, output, and validation
+
+### Build
+
+| | |
+|---|---|
+| **Definition** | Reconstruct a localized `.tex` from TM + placeholder maps |
+| **Responsibility** | Emit output path; fail-closed unless `--allow-partial` |
+| **Relationships** | Uses buildable Segment Statuses; not PDF compilation |
+| **Code example** | `core/build.py`, `lilt pipeline build` |
+| **Alternative names** | reconstruct, emit |
+| **Recommendation** | **Keep** |
+
+### Output
+
+| | |
+|---|---|
+| **Definition** | Built `.tex` file (and optional shadow tree such as `i18n/build/`) |
+| **Responsibility** | Operator-visible localization artifact |
+| **Relationships** | PDF is **external** — not a LILT CLI product |
+| **Code example** | `pipeline build … OUTPUT_FILE` |
+| **Alternative names** | target tex, shadow copy |
+| **Recommendation** | **Keep**; never imply PDF is Output of `lilt` |
+
+### Validation
+
+| | |
+|---|---|
+| **Definition** | Deterministic structural checks (placeholders, syntax) on translations |
+| **Responsibility** | Gate TM commits; feed AccuracyGate; distinct from Critique and Review |
+| **Relationships** | `SegmentTranslationValidator`, `PlaceholderValidator`, AccuracyGate |
+| **Code example** | `validation/` |
+| **Alternative names** | “check”, “QA” (avoid for LLM critique) |
+| **Recommendation** | **Keep**; say **structural validation** when ambiguous |
+
+### Quality roles (Critique / Review / Validation)
+
+| Role | Who | Canonical term |
+|------|-----|----------------|
+| LLM analysis of a draft (MQM-style) | Model | **Critique** |
+| Human editorial gate | Human | **Review** |
+| Automated structural check | Code | **Validation** / **AccuracyGate** |
+| Product “evaluate” / corpus score CLI | — | **Not shipped** — do not invent |
+
+See also [Critique vs Review](#critique-vs-review) and [AccuracyGate](#accuracygate).
+
+---
+
 ## Application and orchestration
 
 ### Translation Pipeline
@@ -220,18 +327,26 @@ When code and prose disagree, **code wins**; update documentation to match.
 | | |
 |---|---|
 | **Definition** | End-to-end CLI path: Sync → Translate → Build |
-| **Responsibility** | User-facing workflow for localization |
-| **Relationships** | Orchestrated by `PipelineService`; distinct from Translation Engine |
+| **Responsibility** | User-facing localization path |
+| **Relationships** | Orchestrated by `PipelineService`; distinct from Translation Engine and from Execution Mode `workflow` |
 | **Code example** | `lilt pipeline` commands, `services/pipeline_service.py` |
 | **Alternative names** | "pipeline" alone (ambiguous) |
-| **Recommendation** | **Keep**; qualify as "translation pipeline" vs "translator pipeline" |
+| **Recommendation** | **Keep**; qualify as "translation pipeline" |
+
+### Three “workflow” senses (do not merge)
+
+| Sense | Meaning | Where |
+|-------|---------|--------|
+| **Translation Pipeline** | Sync → Translate → Build | `lilt pipeline …` |
+| **Execution Mode `workflow`** | Stage-aware reflection (`draft`/`critique`/`refine`) vs `sequential` | `translation_mode`, `--mode` |
+| **Operator workflows** | How-to scenarios in docs | [`guides/workflows.md`](../guides/workflows.md) |
 
 ### Translation Engine
 
 | | |
 |---|---|
 | **Definition** | Core subsystem that runs reflection over TM segments |
-| **Responsibility** | Selects strategy, resolves context, validates, persists via checkpoint |
+| **Responsibility** | Selects strategy, resolves neighbor context, validates, persists via checkpoint |
 | **Relationships** | `create_reflection_strategy` selects a `ReflectionStrategy` implementation |
 | **Code example** | `core/translation/` |
 | **Alternative names** | "translate module" |
@@ -275,6 +390,24 @@ Do not merge these types; the `*Resolver` suffix is overloaded but each role is 
 | **Compaction stage** | TM finalize after a batch | `TranslationCheckpoint.finalize_stage()` |
 | **Telemetry stage** | Bucket in inference records | May include `"sequential"` (execution path, not a translation stage) |
 
+### Process / phase / pass / step
+
+| Prefer | Avoid as product terms |
+|--------|-------------------------|
+| **Translation Pipeline** steps (sync/translate/build) | Vague “process” / “phase” for the whole product |
+| **Translation Stage** | “Phase” for draft/critique/refine |
+| **Reflection Pass** / stage execution | Unqualified “pass” / “step” for LLM calls |
+| **Execution Mode** | “Workflow phase” |
+
+### Context
+
+| Sense | Meaning | Example |
+|-------|---------|---------|
+| **Neighbor / RAG context** | Surrounding segment text for prompts | `ContextResolver` |
+| **Model context limit** | Token window capacity | `llm.model_context_limit`, `tm budget` |
+| **Workspace Context** | Composition root | `WorkspaceContext` |
+| **Domain context** | Optional project blurb in config | `project.domain_context` |
+
 ### Model
 
 | Sense | Meaning | Example |
@@ -282,6 +415,15 @@ Do not merge these types; the `*Resolver` suffix is overloaded but each role is 
 | **Domain model** | Pydantic schema | `StoredSegment`, `SegmentPolicy`, `SyncResult` |
 | **LLM model** | Provider model identifier | `stage_model_name()`, `StageArtifact.model` |
 | **Execution mode** | Not a "model" | Avoid calling `sequential` a model |
+
+### Memory / checkpoint / state
+
+| Term | Meaning |
+|------|---------|
+| **Translation Memory (TM)** | Append-oriented JSONL segment SSOT |
+| **Translation Checkpoint** | Crash-safe persist boundary during translate |
+| **Segment Status** | Lifecycle state on a segment |
+| Avoid | Calling TM “context” or checkpoint “memory” |
 
 ### Block
 
@@ -304,7 +446,7 @@ Do not merge these types; the `*Resolver` suffix is overloaded but each role is 
 | **Relationships** | Created by `ProviderFactory`; may delegate via `RouterLLMProvider` |
 | **Code example** | `LLMProvider` protocol, `BaseLLMProvider` |
 | **Alternative names** | adapter, backend |
-| **Recommendation** | **Keep** |
+| **Recommendation** | **Keep**; shipped factory key `openai` (OpenAI-compatible). Not a multi-agent runtime |
 
 ### Provider Factory
 
@@ -340,9 +482,9 @@ Do not merge these types; the `*Resolver` suffix is overloaded but each role is 
 |---|---|
 | **Definition** | Composition root for workspace-scoped dependencies |
 | **Responsibility** | Injects TM repository, telemetry, config paths |
-| **Relationships** | Distinct from translation **context** (neighbor segments) |
+| **Relationships** | Distinct from translation **context** (neighbor segments) and from Workspace (directory) |
 | **Code example** | `services/workspace_context.py` |
-| **Alternative names** | workspace, project root |
+| **Alternative names** | composition root |
 | **Recommendation** | **Keep** |
 
 ### Reflection Cost Estimation
@@ -374,8 +516,12 @@ Do not merge these types; the `*Resolver` suffix is overloaded but each role is 
 
 | Deprecated | Use instead |
 |------------|-------------|
-| multi-agent / agentic (project framing) | reflection pipeline, D→C→R |
+| multi-agent / agentic / agent framework (project framing) | reflection stages (Draft → Critique → Refine) |
 | monolithic (for sequential mode) | sequential execution mode |
 | Gold / Silver context | backward-priority vs bidirectional context (see 04-translation-engine) |
 | Review phases (for critique/refine) | translation stages or critique/refine |
-| agential cost / `SegmentInDB` / `ArtifactMeta` / `use_workflow` | removed from code; use canonical terms in [00-glossary](00-glossary.md) |
+| feedback / evaluation (for LLM critique) | **Critique** |
+| evaluation / `project evaluate` (product CLI) | not shipped — appendix-deferred / out of repo |
+| process / phase (unqualified product jargon) | pipeline / stage / pass as above |
+| agential cost / `SegmentInDB` / `ArtifactMeta` / `use_workflow` | removed from code; use canonical terms in this glossary |
+| `pip install lilt` (this project) | Git install; dist **`latex-lilt`**; CLI **`lilt`** |

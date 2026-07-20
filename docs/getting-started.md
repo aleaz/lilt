@@ -1,23 +1,28 @@
-# Getting started
+# Getting started (Quick Start)
 
-## Prerequisites and install
+Get from zero to a **rebuilt localized `.tex`** as fast as possible. No architecture — just a successful first run.
 
-### Prerequisites
+Expanded walkthrough: [First translation](guides/first-translation.md). Hub: [Documentation](README.md).
 
-| Requirement | Required for | Notes |
-|-------------|--------------|-------|
-| **Python 3.13+** | All commands | Enforced in `pyproject.toml` |
-| **uv** or **pipx** | Installation | `uv` is the project-standard tool |
-| **TeX Live / MacTeX / MiKTeX** | Manual PDF compilation | Not required for sync/translate/build |
-| **Git** | Recommended | TM JSONL files are version-control friendly |
+## Before you start
 
-### Global Install (recommended)
+| Need | Notes |
+|------|-------|
+| **Python 3.13+** | Required |
+| **`uv` or `pipx`** | Install the CLI |
+| **LaTeX sources** | A project directory with at least one `.tex` file |
+| **OpenAI-compatible LLM** | Required for `translate` (local or cloud) |
+| **TeX distribution** | Optional — only if you will compile PDF yourself |
 
-> **Not on PyPI as `lilt`.** That name is taken by another project. Install from
-> Git. The distribution name is `latex-lilt`; the CLI command remains `lilt`.
+> **Not on PyPI as `lilt`.** That name is another project. Install from Git. Distribution package: **`latex-lilt`**. CLI command: **`lilt`**.
+
+## 1. Install
+
+**Recommended (tool install):**
 
 ```bash
 uv tool install git+https://github.com/aleaz/lilt
+lilt --version
 ```
 
 Or with pipx:
@@ -26,103 +31,97 @@ Or with pipx:
 pipx install git+https://github.com/aleaz/lilt
 ```
 
-### Editable Install from Source
+**From source (editable):**
 
 ```bash
 git clone https://github.com/aleaz/lilt
 cd lilt
 uv sync
-uv run lilt --help
+uv run lilt --version
 ```
 
-### Development Install
+## 2. Initialize your LaTeX project
 
 ```bash
-git clone https://github.com/aleaz/lilt
-cd lilt
-uv sync          # installs runtime + dev dependencies
-source .venv/bin/activate   # optional, for IDE integration
-```
-
-### Platform Notes
-
-- **macOS / Linux:** Fully supported. File locks use `filelock` (POSIX-safe).
-- **Windows:** Not explicitly tested; path handling uses `os.path` throughout.
-
----
-
-## Workspace layout
-
-Running `lilt project init` creates:
-
-```text
-your-latex-project/
-├── .lilt/
-│   ├── lilt.yaml          # Main configuration (typed, validated)
-│   ├── .env               # API keys (git-ignored)
-│   ├── .gitignore         # Ignores *.db, .env, lilt.log
-│   ├── tm/                # Translation Memory (JSONL per namespace)
-│   │   ├── main.jsonl
-│   │   └── chapters__intro.jsonl
-│   ├── telemetry.db       # LLM inference telemetry (SQLite)
-│   └── lilt.log           # Debug log (when .lilt exists)
-├── main.tex
-└── ...
-```
-
-Namespaces are derived from encoded relative `.tex` paths (e.g. `chapters/intro.tex` → `chapters__intro.jsonl`).
-
-## First sync → translate → build
-
-From your LaTeX project directory:
-
-```bash
-# 1. Initialize workspace
+cd /path/to/your-latex-project
 lilt project init
-
-# 2. Discover custom macros (optional but recommended)
-lilt project configure .
+lilt project configure .    # optional but recommended — discovers custom macros
 ```
 
-### Configure LLM (required before translate)
+This creates `.lilt/lilt.yaml`, `.lilt/.env`, and `.lilt/tm/` beside your sources.
 
-Edit `.lilt/lilt.yaml` so `llm.base_url` and `llm.model` point at an
-OpenAI-compatible server. Local example (LM Studio / Ollama):
+## 3. Configure the LLM (required before translate)
+
+Edit `.lilt/lilt.yaml`. Set languages and an OpenAI-compatible endpoint. Example (local LM Studio / Ollama-style):
 
 ```yaml
+project:
+  source_lang: en
+  target_lang: es
+
 llm:
+  provider: openai
   base_url: "http://localhost:1234/v1"
   model: "your-model-id"
   api_key_env: "OPENAI_API_KEY"   # often unused for local servers
 ```
 
-For cloud providers, set the API key in `.lilt/.env` or a workspace `.env`
-(both are git-ignored). Details: [Configuration guide](guides/configuration.md).
-If translate fails immediately, see [Troubleshooting](runbooks/troubleshooting.md).
+For cloud APIs, put the key in `.lilt/.env` (git-ignored), for example:
 
 ```bash
-# 3. Parse source and populate Translation Memory
+echo 'OPENAI_API_KEY=sk-...' >> .lilt/.env
+```
+
+More topologies: [Configuration guide](guides/configuration.md). If translate fails immediately: [Troubleshooting](runbooks/troubleshooting.md).
+
+## 4. First execution
+
+Replace `main.tex` with your project’s root file if needed:
+
+```bash
 lilt pipeline sync main.tex
-
-# 4. Translate all namespaces
 lilt pipeline translate --all
-
-# 5. Build translated output into a shadow directory
 mkdir -p i18n/build
 lilt pipeline build main main.tex i18n/build/main.tex
 ```
 
-Review and approve translations:
+## 5. Expected result
 
-```bash
-lilt pipeline review main
-```
+| Check | Success looks like |
+|-------|-------------------|
+| Sync | TM files under `.lilt/tm/` (e.g. `main.jsonl`) |
+| Translate | Segments progress toward translated statuses (`tm status`) |
+| Build | File `i18n/build/main.tex` exists with localized prose |
+| PDF | **Not** produced by LILT — compile `i18n/build/main.tex` yourself if you need PDF |
+
+**Default build is fail-closed:** it fails if segments are still `generated`, `drafted`, `critiqued`, `conflict`, or `error`. Buildable statuses include `refined`, `reviewed`, `approved`, and `locked`. See [First translation](guides/first-translation.md) if build refuses incomplete work.
+
+## 6. Next steps
+
+| Goal | Go to |
+|------|--------|
+| Same path with more explanation | [First translation](guides/first-translation.md) |
+| Resume, conflicts, multi-file, TM | [Workflows](guides/workflows.md) |
+| Human approve / export-import | [Human review](guides/human-review.md) |
+| Modes, stages, automation | [Advanced usage](guides/advanced-usage.md) |
+| Stuck? | [Troubleshooting](runbooks/troubleshooting.md) · [FAQ](faq.md) · [Recovery](runbooks/recovery.md) |
+| What / why (user view) | [Concepts](concepts.md) |
+| Exact flags | [CLI reference](reference/cli.md) |
 
 ---
 
-## Next steps
+### Workspace layout (reference)
 
-- [Concepts](concepts.md)
-- [Workflows](guides/workflows.md)
-- [Configuration guide](guides/configuration.md)
-- [CLI reference](reference/cli.md)
+```text
+your-latex-project/
+├── .lilt/
+│   ├── lilt.yaml
+│   ├── .env
+│   ├── tm/                 # Translation Memory (JSONL)
+│   ├── telemetry.db
+│   └── lilt.log            # with --debug
+├── main.tex
+└── ...
+```
+
+Namespaces come from encoded relative paths (e.g. `chapters/intro.tex` → `chapters__intro`).

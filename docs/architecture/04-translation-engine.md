@@ -12,6 +12,8 @@ modules:
   - src/lilt/llm/reflection_pass.py
   - src/lilt/models/translation_mode.py
   - src/lilt/validation/validators.py
+  - src/lilt/validation/accuracy_gate.py
+  - src/lilt/llm/critique_gate.py
   - src/lilt/llm/prompt_manager.py
 ---
 
@@ -83,7 +85,8 @@ generated → drafted → critiqued → refined
 ```
 
 - **Draft:** contextual RAG with bidirectional window in workflow; backward-priority in sequential.
-- **Critique:** MQM JSON with `requires_refine`; short-circuits refine when `requires_refine: false`. Empty critique bypasses to accept draft. Non-empty output that fails structural JSON parse → `conflict` (refine not called). Default `balanced` profile uses `json_gate` (JSON only); `strict` uses `reasoned_gate` (optional reasoning + JSON).
+- **Critique:** Editorial MQM JSON with `requires_refine`; short-circuits refine when `requires_refine: false`. Empty critique bypasses to AccuracyGate-only decision. Non-empty output that fails structural JSON parse is **degraded** via `merge_critique_with_accuracy` (not `conflict` at critique time): if AccuracyGate fails → force refine; if AccuracyGate ok → accept draft. Default `balanced` profile uses `json_gate` (JSON only); `strict` uses `reasoned_gate` (optional reasoning + JSON).
+- **AccuracyGate:** Deterministic placeholder/syntax check on the draft (`validation/accuracy_gate.py`). Owns structural accuracy so free-text critique JSON never decides placeholder integrity. Can force refine even when editorial critique says accept.
 - **Refine:** correction pass; up to **3 validation retries** with error feedback appended to critique text (both workflow and sequential). Invalid stored critique JSON also aborts refine with `conflict`.
 - Re-draft clears prior `critique` and `refined` artifacts.
 
@@ -104,8 +107,9 @@ Token budgeting uses measured prompts plus reserved output via `plan_token_budge
 
 | Validator | When | On failure |
 |-----------|------|------------|
+| `AccuracyGate` | After draft, merged with critique parse (`merge_critique_with_accuracy`) | Force refine and/or degrade critique; telemetry `retry_reason` e.g. `accuracy_gate_forced_refine`, `critique_parse_degraded` |
 | `SegmentTranslationValidator` | After draft/refine (workflow); after full pass (sequential); human edits via `submit_human_translation` / `update_segment_translation` | `conflict` or CLI error (no persist) |
-| `BuildValidator` | At build time | `ValidationError` before stitch |
+| `BuildValidator` | At build time | `ValidationError` / `BuildError` before stitch |
 
 #### Exception boundaries
 
@@ -156,6 +160,8 @@ MQM tiers: L1 structural (validators), L2 terminology (lexical mask; validator d
 | Workflow default | Better GPU utilization for local models | Sequential-only |
 | Retain sequential | A/B metrics, backward-refined context purity | Deprecate sequential |
 | Critique JSON short-circuit | Save tokens when draft is acceptable | Always run refine |
+| AccuracyGate owns structural accuracy | Free-text critique must not decide placeholders | Critique-only accuracy |
+| Critique JSON degrade (not conflict) | Keep pipeline moving; AccuracyGate decides force-refine vs accept | Immediate `conflict` on parse fail |
 | Refine validation retry (3×) | Auto-recover placeholder/brace errors | Immediate conflict |
 | Separate error vs conflict | Observability and recovery paths | Single failure status |
 | Internal `status_filter` parameter | Clarifies `--status` is a filter, not a target state | Keep misleading `target_status` name |
@@ -182,6 +188,8 @@ MQM tiers: L1 structural (validators), L2 terminology (lexical mask; validator d
 | `llm/output_gate.py` | `validate_llm_output` (re-exports `EmptyLLMOutputError`) |
 | `tm/checkpoint.py` | `TranslationCheckpoint` append + stage-end compaction |
 | `validation/validators.py` | `SegmentTranslationValidator`, `PlaceholderValidator`, `SyntaxValidator`, `BuildValidator` |
+| `validation/accuracy_gate.py` | Deterministic draft accuracy (`AccuracyGate`) |
+| `llm/critique_gate.py` | `merge_critique_with_accuracy` (JSON degrade / force-refine / accept) |
 | `services/pipeline_service.py` | `submit_human_translation` for human edits |
 | `llm/prompt_manager.py` | Jinja2 template loading |
 | `llm/critique_parser.py` | Parse critique JSON from LLM output |
@@ -197,8 +205,10 @@ artifacts.
 
 | Condition | Status | Recovery |
 |-----------|--------|----------|
-| Placeholder mismatch | `conflict` | Edit or `--force` re-translate |
-| Syntax delta mismatch | `conflict` | Same |
+| Placeholder mismatch (post-refine / human) | `conflict` | Edit or `--force` re-translate |
+| Syntax delta mismatch (post-refine / human) | `conflict` | Same |
+| Critique JSON unusable | Degrade via AccuracyGate (not critique-time `conflict`) | Force refine or accept draft |
+| AccuracyGate fail + editorial accept | Force refine | Let refine repair structure |
 | Refine retries exhausted (workflow) | `conflict` | Human edit |
 | LLM timeout / 5xx | `error` | Adjust `timeout`/`retry`; re-run |
 | `--stage draft` on `error` segment | Re-eligible for draft | Workflow partial re-run |

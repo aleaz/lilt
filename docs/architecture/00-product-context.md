@@ -218,6 +218,9 @@ Opaque nodes and protected terminology are extracted before the model sees text;
 - Gap-preserving parser roundtrip ([Parser and Masking](03-parser-masking.md)).
 - Reflection cost estimation in `lilt tm status` ([Observability](08-observability.md)).
 - Unified segment validation via `SegmentTranslationValidator` and human edit path ([Translation Engine](04-translation-engine.md)).
+- Deterministic **AccuracyGate** merged with critique degrade policy ([Translation Engine](04-translation-engine.md)).
+- Fail-closed `pipeline build` with opt-in `--allow-partial` ([Build and Output](06-build-output.md)).
+- Context capacity advisor `lilt tm budget` ([LLM Layer](05-llm-layer.md)).
 
 ### Phase 3
 
