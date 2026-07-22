@@ -160,6 +160,7 @@ legality to match what `pipeline translate` will pick.
 | Separate `error` status | Distinguish infra from linguistic failures | Overload `conflict` |
 | Append-only + compaction | Crash-safe partial progress without SQLite | SQLite TM, event sourcing |
 | `StoredSegment` naming | Domain-oriented type name; JSONL schema unchanged | Persistence-layer suffix (`*InDB`) |
+| Session lease + dead-PID reclaim | Crash-only recovery after SIGKILL without tribal `rm` of lock files; live holders stay exclusive | Bare FileLock only; unconditional unlink on busy; TTL steal from live PIDs |
 
 ## Implementation map
 
@@ -171,7 +172,8 @@ legality to match what `pipeline translate` will pick.
 | `models/sync_result.py` | `SyncResult` metrics from sync operations |
 | `models/segment_transition.py` | `SegmentTransitionPolicy` for status changes |
 | `models/translation_stage.py` | `TranslationStage` enum |
-| `tm/repository.py` | JSONL load/save, `append_segment`, `deduplicate_ordered_segments`, `FileLock` |
+| `tm/repository.py` | JSONL load/save, `append_segment`, session lease acquire/reclaim, `FileLock` |
+| `tm/session_lease.py` | `SessionLease` metadata + dead-PID reclaim policy |
 | `tm/checkpoint.py` | `TranslationCheckpoint` (`record_segment`, `finalize_stage`, `record_and_finalize_if_last`) |
 | `tm/identity_resolver.py` | Carry-forward on sequence alignment |
 | `tm/source_change.py` | `SourceChangePolicy` on upstream text changes |
@@ -188,17 +190,35 @@ legality to match what `pipeline translate` will pick.
 | Minor upstream edit (aligned) | Carry-forward or `generated` | Automatic via identity resolver |
 | Process crash mid-run | Partial append lines | Reload; resume translate |
 | Corrupt JSONL line | `TMCorruptionError` on strict load | `lilt tm admin repair` (file-exists check only, then skips bad lines and backs up) |
-| Concurrent namespace mutation | `NamespaceBusyError` | Wait for the other operation; do not run sync and translate in parallel on the same namespace |
-| Lock contention | `TMConcurrencyError` after retries | Re-run command |
+| Concurrent namespace mutation (live holder) | `NamespaceBusyError` (pid/host/lock path) | Wait for the other operation; do not run sync and translate in parallel on the same namespace |
+| Stale session lease (dead same-host pid) | Auto-reclaim on next acquire | Re-run the command; no manual lock-file delete |
+| Lock contention (file lock) | `TMConcurrencyError` after retries | Re-run command |
 | Illegal status transition | `InvalidTransitionError` | Use allowed transition or `--force` |
 
 ## Concurrency invariant
 
 Only **one mutating operation per namespace** may run at a time (sync, translate,
 import, reset, edit, `set-status`). The repository enforces this via a
-non-blocking session lock (`*.session.lock`). Per-operation file locks remain as
-a secondary safeguard. Full transactional read-modify-write across arbitrary
-call paths is deferred (see [appendix-deferred](appendix-deferred.md)).
+non-blocking **session lease** (`*.session.lock` plus companion `*.session.lease`
+metadata: pid, hostname, started_at, lease_id).
+
+On acquire contention:
+
+- **Dead same-host owner** → lease is **reclaimed** automatically (stale lock after
+  `SIGKILL` / crash); a warning is logged.
+- **Live owner** → `NamespaceBusyError` includes pid/host/lock path; wait and retry.
+- **Other host** → busy without auto-steal.
+
+Per-operation file locks (`*.jsonl.lock`) remain as a secondary I/O safeguard.
+Full transactional read-modify-write across arbitrary call paths is deferred
+(see [appendix-deferred](appendix-deferred.md)).
+
+### Cooperative translate cancel
+
+`pipeline translate` installs SIGINT/SIGTERM handlers that set an abort flag.
+Strategies check the flag **between segments** and raise `KeyboardInterrupt`,
+releasing the session lease via normal `finally`. In-flight LLM HTTP calls may
+still finish the current segment; cancel boundary is the next segment start.
 
 ## Known gaps
 

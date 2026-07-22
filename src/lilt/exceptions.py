@@ -103,12 +103,38 @@ class TMConcurrencyError(LiltDomainError):
 class NamespaceBusyError(LiltDomainError):
     """Raised when a namespace session lock is already held by another operation."""
 
-    def __init__(self, namespace: str):
-        super().__init__(
-            f"Namespace '{namespace}' is in use by another operation. "
-            "Wait for it to finish and retry."
-        )
+    def __init__(
+        self,
+        namespace: str,
+        *,
+        pid: int | None = None,
+        hostname: str | None = None,
+        started_at: str | None = None,
+        lock_path: str | None = None,
+        cross_host: bool = False,
+    ):
+        parts = [f"Namespace '{namespace}' is in use by another operation."]
+        if pid is not None:
+            parts.append(f"holder pid={pid}")
+        if hostname:
+            parts.append(f"host={hostname}")
+        if started_at:
+            parts.append(f"since={started_at}")
+        if lock_path:
+            parts.append(f"lock={lock_path}")
+        if cross_host:
+            parts.append(
+                "Lease is on another host; wait for that process or unlock from that machine."
+            )
+        else:
+            parts.append("Wait for it to finish and retry.")
+        super().__init__(" ".join(parts))
         self.namespace = namespace
+        self.pid = pid
+        self.hostname = hostname
+        self.started_at = started_at
+        self.lock_path = lock_path
+        self.cross_host = cross_host
 
 
 class TMCorruptionError(LiltDomainError):

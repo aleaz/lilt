@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import shutil
+import socket
 import time
 from collections.abc import Generator
 from contextlib import contextmanager
@@ -29,6 +30,14 @@ from lilt.models.segment import (
 )
 from lilt.models.segment_policy import SegmentPolicy
 from lilt.models.segment_transition import SegmentTransitionPolicy
+from lilt.tm.session_lease import (
+    SessionLease,
+    clear_lease,
+    lease_path_for_session_lock,
+    read_lease,
+    should_reclaim_lease,
+    write_lease,
+)
 from lilt.validation.validators import SegmentTranslationValidator, ValidationError
 
 logger = logging.getLogger(__name__)
@@ -85,18 +94,86 @@ class TMRepository:
         return f"{filepath}.session.lock"
 
     @contextmanager
-    def namespace_session(self, namespace: str) -> Generator[None]:
-        """Acquire an exclusive non-blocking session lock for mutating operations."""
+    def namespace_session(
+        self, namespace: str, *, operation: str | None = None
+    ) -> Generator[None]:
+        """Acquire an exclusive non-blocking session lease for mutating operations.
+
+        On contention, dead same-host owners are reclaimed automatically. Live
+        holders raise :class:`~lilt.exceptions.NamespaceBusyError` with identity.
+        """
         lock_path = self._get_session_lock_path(namespace)
+        meta_path = lease_path_for_session_lock(lock_path)
         lock = FileLock(lock_path, timeout=0)
+        self._acquire_session_lock(namespace, lock, lock_path, meta_path)
+        lease = SessionLease.create(operation=operation)
         try:
-            lock.acquire()
-        except Timeout as exc:
-            raise NamespaceBusyError(namespace) from exc
-        try:
+            write_lease(meta_path, lease)
             yield
         finally:
-            lock.release()
+            clear_lease(meta_path)
+            try:
+                lock.release()
+            except Exception as exc:
+                logger.warning(
+                    "Failed to release session lock for '%s': %s", namespace, exc
+                )
+
+    def _acquire_session_lock(
+        self,
+        namespace: str,
+        lock: FileLock,
+        lock_path: str,
+        meta_path: str,
+    ) -> None:
+        try:
+            lock.acquire()
+            return
+        except Timeout:
+            pass
+
+        lease = read_lease(meta_path)
+        if should_reclaim_lease(lease):
+            owner = f"pid={lease.pid}" if lease else "missing lease metadata"
+            logger.warning(
+                "Reclaiming stale session lease for namespace '%s' (%s)",
+                namespace,
+                owner,
+            )
+            self._force_clear_session_lock(lock_path, meta_path)
+            try:
+                lock.acquire()
+                return
+            except Timeout as exc:
+                raise NamespaceBusyError(
+                    namespace,
+                    lock_path=lock_path,
+                    pid=lease.pid if lease else None,
+                    hostname=lease.hostname if lease else None,
+                    started_at=lease.started_at if lease else None,
+                ) from exc
+
+        assert lease is not None
+        cross_host = lease.hostname != socket.gethostname()
+        raise NamespaceBusyError(
+            namespace,
+            pid=lease.pid,
+            hostname=lease.hostname,
+            started_at=lease.started_at,
+            lock_path=lock_path,
+            cross_host=cross_host,
+        )
+
+    @staticmethod
+    def _force_clear_session_lock(lock_path: str, meta_path: str) -> None:
+        clear_lease(meta_path)
+        for path in (lock_path, f"{lock_path}.lock"):
+            try:
+                os.remove(path)
+            except FileNotFoundError:
+                pass
+            except OSError as exc:
+                logger.warning("Could not remove stale lock file %s: %s", path, exc)
 
     @contextmanager
     def _with_file_lock(self, namespace: str) -> Generator[None]:

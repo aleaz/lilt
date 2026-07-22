@@ -12,6 +12,14 @@ Each guide: **Goal** · **Expected state after** · **Steps** · **If still fail
 
 **Expected state after:** Remaining eligible segments translate; completed TM rows unchanged.
 
+**Behavior notes:**
+
+- `Ctrl+C` / SIGTERM during `pipeline translate` sets a cooperative abort flag.
+  Cancel takes effect **between segments** (exit 130). The current in-flight LLM
+  call may still finish that one segment; the session lease is released on exit.
+- Finished segments stay in the TM; the in-flight segment is rolled back via
+  segment unit-of-work when interrupt hits mid-mutation.
+
 **Steps:**
 
 1. `lilt tm status --all` (or one namespace).
@@ -29,6 +37,32 @@ Each guide: **Goal** · **Expected state after** · **Steps** · **If still fail
 **If still failing:** Check `error`/`conflict` via `tm list`; see [Troubleshooting decision tree](troubleshooting.md#my-translation-failed). Do not start a second parallel translate on the same namespace.
 
 **Related:** [Workflows — resume](../guides/workflows.md#scenario-resume-an-interrupted-translation).
+
+---
+
+## Stale session lease (after crash / SIGKILL)
+
+**Goal:** Recover when a previous mutating command died hard and left
+`.lilt/tm/<ns>.session.lock` / `.session.lease` behind.
+
+**Expected state after:** The next sync/translate/import/edit acquires the
+namespace normally; no manual `rm` of lock files.
+
+**Steps:**
+
+1. Confirm no live `lilt` process is still writing that namespace
+   (`ps` / Activity Monitor).
+2. Re-run the same command (e.g. `lilt pipeline translate NAMESPACE`).
+3. Same-host + dead holder PID → LILT **reclaims** the lease automatically and
+   logs a warning. Live holder or other-host lease → wait (see
+   [NamespaceBusyError](troubleshooting.md#namespacebusyerror)).
+
+**If still failing:** Do **not** habitually delete lock files while a process may
+be alive. If you are certain the holder is dead and reclaim did not run (e.g.
+corrupt lease metadata), stop all LILT writers, then remove only that
+namespace’s `*.session.lock` / `*.session.lease` pair and retry.
+
+**Related:** [02-persistence — concurrency](../architecture/02-persistence.md#concurrency-invariant).
 
 ---
 

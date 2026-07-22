@@ -113,10 +113,10 @@ lilt tm list main --status conflict
 
 | | |
 |--|--|
-| **Symptom** | `Namespace '...' is in use by another operation.` |
-| **Cause** | Second writer (e.g. sync ∥ translate) on same namespace |
-| **Diagnose** | List running `lilt` processes |
-| **Resolution** | Wait; retry one operation |
+| **Symptom** | `Namespace '...' is in use by another operation.` (may include `pid=` / `host=` / lock path) |
+| **Cause** | Live second writer (e.g. sync ∥ translate) on same namespace; or other-host lease |
+| **Diagnose** | Match `pid=` to a running process; if PID is dead on this host, next acquire should auto-reclaim |
+| **Resolution** | Wait for the live holder; retry. Stale same-host lease after SIGKILL → just retry ([Recovery — stale lease](recovery.md#stale-session-lease-after-crash--sigkill)) |
 | **Prevention** | One mutating op per namespace |
 | **Related** | [Error reference](error-reference.md#namespacebusyerror) |
 

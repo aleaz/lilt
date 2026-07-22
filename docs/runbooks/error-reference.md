@@ -146,14 +146,14 @@ Template per error: **When** · **Diagnose** · **Resolve** · **Prevent** · **
 
 ## NamespaceBusyError
 
-**Message pattern:** `Namespace '…' is in use by another operation.`
+**Message pattern:** `Namespace '…' is in use by another operation.` (optional `holder pid=` / `host=` / lock path)
 
 | | |
 |--|--|
-| **Diagnose** | Another `lilt` mutating the namespace |
-| **Resolve** | Wait and retry |
+| **Diagnose** | Live writer on this host, or lease owned by another hostname |
+| **Resolve** | Wait and retry. Dead same-host PID is reclaimed automatically on next acquire — do not delete lock files while a process may be alive |
 | **Prevent** | No parallel sync/translate on same namespace |
-| **Related** | [Troubleshooting](troubleshooting.md#namespacebusyerror) |
+| **Related** | [Troubleshooting](troubleshooting.md#namespacebusyerror); [Recovery — stale lease](recovery.md#stale-session-lease-after-crash--sigkill) |
 
 ## TMCorruptionError
 
