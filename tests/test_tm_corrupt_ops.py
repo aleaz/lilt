@@ -21,8 +21,14 @@ def _write_valid(path: str, seg_id: str = "seg1") -> None:
 
 def test_get_all_stats_skips_corrupt_namespace():
     with tempfile.TemporaryDirectory() as tmpdir:
-        tm_dir = os.path.join(tmpdir, ".lilt", "tm")
+        lilt_dir = os.path.join(tmpdir, ".lilt")
+        tm_dir = os.path.join(lilt_dir, "tm")
         os.makedirs(tm_dir)
+        with open(os.path.join(lilt_dir, "lilt.yaml"), "w", encoding="utf-8") as f:
+            f.write(
+                "project:\n  source_lang: en\n  target_lang: es\n"
+                "llm:\n  base_url: http://127.0.0.1:9\n  model: mock\n"
+            )
         _write_valid(os.path.join(tm_dir, "good.jsonl"))
         with open(os.path.join(tm_dir, "bad.jsonl"), "w", encoding="utf-8") as f:
             f.write("{not json}\n")

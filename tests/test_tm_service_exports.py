@@ -1,6 +1,7 @@
 import csv
 import json
 import os
+from pathlib import Path
 
 from lilt.models.segment import SegmentStatus, StoredSegment
 from lilt.services.tm_service import TMService
@@ -9,6 +10,13 @@ from lilt.services.tm_service import TMService
 def test_tm_service_stats_and_exports(tmpdir):
     # Setup TM Service and create some dummy data
     workspace = str(tmpdir)
+    lilt_dir = Path(workspace) / ".lilt"
+    lilt_dir.mkdir(parents=True, exist_ok=True)
+    (lilt_dir / "lilt.yaml").write_text(
+        "project:\n  source_lang: en\n  target_lang: es\n"
+        "llm:\n  base_url: http://127.0.0.1:9\n  model: mock\n",
+        encoding="utf-8",
+    )
     service = TMService(workspace)
 
     seg1 = StoredSegment(

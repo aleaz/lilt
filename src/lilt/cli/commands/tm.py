@@ -265,6 +265,11 @@ def _show_status(
     if all_namespaces:
         s, corrupt_namespaces = service.get_all_stats()
         title_name = "ALL NAMESPACES"
+        if s.get("total", 0) == 0 and not service.list_namespaces():
+            print_info(
+                "Workspace is initialized but no TM namespaces exist yet. "
+                "Run `lilt pipeline sync` on a .tex file."
+            )
     else:
         assert namespace is not None, "Namespace must be provided if --all is not set"
         s = service.get_stats(namespace)
@@ -280,7 +285,8 @@ def _show_status(
     total = s.pop("total", 0)
     reflection_used = s.pop("reflection_used", 0)
     draft_accepted = s.pop("draft_accepted", 0)
-    refined = s.pop("refined", 0)
+    # Reflection metric — must not pop status key "refined" (RG-01).
+    reflection_refined = s.pop("reflection_refined", 0)
     tokens_total = s.pop("tokens_total", 0)
     tokens_pending = s.pop("tokens_pending", 0)
     tokens_reflection = s.pop("tokens_reflection_estimate", 0)
@@ -303,12 +309,16 @@ def _show_status(
         pct_accepted = (
             (draft_accepted / reflection_used) * 100 if reflection_used > 0 else 0
         )
-        pct_refined = (refined / reflection_used) * 100 if reflection_used > 0 else 0
+        pct_refined = (
+            (reflection_refined / reflection_used) * 100 if reflection_used > 0 else 0
+        )
 
         table.add_row(
             "Drafts Accepted", str(draft_accepted), f"{pct_accepted:.1f}%", ""
         )
-        table.add_row("Segments Refined", str(refined), f"{pct_refined:.1f}%", "")
+        table.add_row(
+            "Segments Refined", str(reflection_refined), f"{pct_refined:.1f}%", ""
+        )
         table.add_row("Total Reflected", str(reflection_used), "100%", "")
 
     if tokens_total > 0:

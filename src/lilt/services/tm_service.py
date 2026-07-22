@@ -127,6 +127,7 @@ class TMService:
 
     def get_stats(self, namespace: str) -> dict[str, int]:
         """Generate translation statistics and progress metrics for a namespace."""
+        self.ctx.preconditions.require_initialized()
         segments = self._get_namespace_segments(namespace)
         stats = {status.value: 0 for status in SegmentStatus}
         stats["total"] = len(segments)
@@ -196,6 +197,7 @@ class TMService:
         Returns:
             Tuple of (aggregated stats, namespaces skipped due to corruption).
         """
+        self.ctx.preconditions.require_initialized()
         namespaces = self.repo.list_namespaces()
         total_stats = {status.value: 0 for status in SegmentStatus}
         total_stats["total"] = 0
