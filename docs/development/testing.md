@@ -28,7 +28,7 @@ uv run pytest tests/test_cli_pipeline.py -q
 | `test_tm_*.py`, `test_sync.py` | Integration | TM, sync, import/export |
 | `test_e2e_pipeline.py`, `test_cli_*.py` | End-to-end / CLI | Full pipeline, Typer commands |
 | `test_placeholder_persistence.py` | Integration | Masking roundtrip + workflow |
-| `tests/release/` (`@pytest.mark.release`) | Release locks | RG-01 `tm status` counts, fail-closed build, idle conflicts, placeholder hints |
+| `tests/release/` (`@pytest.mark.release`) | Release locks | RG-01 `tm status` counts, fail-closed build, idle conflicts, placeholder hints, Session Manager signals |
 
 Config: `[tool.pytest.ini_options]` in [`pyproject.toml`](../../pyproject.toml) (`testpaths = ["tests"]`). Release locks run in default pytest / `make ci` (not excluded).
 
@@ -37,6 +37,24 @@ Filter release locks only:
 ```bash
 uv run pytest -m release
 ```
+
+## Session Manager suite
+
+Permanent contracts for namespace session lease, reclaim, busy identity, and
+cooperative abort (no LLM). Maintainer inventory (gitignored):
+`docs/internal/SESSION_MANAGER_VALIDATION_SUITE.md` and related
+`SESSION_MANAGER_*.md` matrices.
+
+```bash
+uv run pytest -k session -q
+uv run pytest tests/test_session_lease.py tests/test_session_lifecycle.py \
+  tests/test_session_reclaim_contracts.py tests/test_translation_abort.py -q
+uv run pytest tests/release/test_session_signal_abort.py tests/release/test_session_lock_stale.py -q
+```
+
+RC OS scenarios (SIGKILL, workspace relocate, long hold) stay **manual** —
+see `docs/internal/SESSION_MANAGER_CI_STRATEGY.md`. Do not automate SIGKILL in
+`make release-validate`.
 
 ## Release validation (pre-tag)
 

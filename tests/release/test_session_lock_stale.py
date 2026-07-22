@@ -84,8 +84,12 @@ def test_live_holder_still_busy(tmp_path: Path) -> None:
         ):
             pass
         err = exc_info.value
-        assert err.pid == os.getpid() or err.pid is not None
+        assert err.pid == os.getpid()
+        assert err.hostname is not None
+        assert err.lock_path is not None
         assert "pid=" in str(err)
+        assert "host=" in str(err)
+        assert "lock=" in str(err)
     finally:
         release.set()
         thread.join(timeout=5)
