@@ -26,6 +26,13 @@ Short path:
 4. Sanity: `uv run lilt --version`.
 5. Before a PR: `make ci` (non-mutating, matches CI). Local auto-format/fix first: `make check-all`.
 
+When validating this clone (release cert, Session Manager labs, debugging
+`tm status`), prefer **`uv run lilt`** or **`.venv/bin/lilt`** from the package
+root. A stale user-level shim (e.g. older `uv tool` / pipx install on
+`PATH` such as `~/.local/bin/lilt`) can shadow the editable tree and look like
+a product regression. Diagnose with `which -a lilt`; upgrade or remove the
+tool install if it is not this checkout.
+
 Tests: [testing.md](testing.md). Layout: [project-layout.md](project-layout.md). Style/naming: [conventions.md](conventions.md).
 
 ## Reading order (new contributor)

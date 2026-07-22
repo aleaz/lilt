@@ -68,6 +68,17 @@ lilt tm list main --status conflict
 | **Prevention** | Never document `pip install lilt` for this repo |
 | **Related** | [FAQ](../faq.md#how-do-i-install-it-pip-install-lilt) |
 
+### Stale tool install shadows a local clone
+
+| | |
+|--|--|
+| **Symptom** | Behavior or `tm status` Counts disagree with `main` / docs while hacking a git checkout |
+| **Cause** | `PATH` hits an older `uv tool` / pipx `lilt` (often `~/.local/bin/lilt`) instead of the editable `.venv` |
+| **Diagnose** | `which -a lilt`; compare `lilt --version` vs `uv run lilt --version` from the repo root |
+| **Resolution** | Use `uv run lilt` / `.venv/bin/lilt` for that clone; `uv tool upgrade` / reinstall or remove the stale shim |
+| **Prevention** | Prefer `uv run` from the package root for contributor and release validation |
+| **Related** | [Contributor guide](../development/contributor-guide.md#getting-started) |
+
 ---
 
 ## Configuration

@@ -25,6 +25,10 @@ uv tool install git+https://github.com/aleaz/lilt
 lilt --version
 ```
 
+After pulling a newer `main`, refresh the tool install (`uv tool upgrade` /
+reinstall) so `PATH` does not keep an old shim. When developing from a clone,
+prefer `uv run lilt` — see [Contributor guide](development/contributor-guide.md).
+
 Or with pipx:
 
 ```bash
