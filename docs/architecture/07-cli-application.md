@@ -121,7 +121,8 @@ PDF compilation is **not** a CLI command. `PdfCompileService` (via
 | `BuildError` (includes wrapped build validation) | Error panel + exit 1 |
 | User aborts editor | No TM change |
 | Corrupt namespace on search | Warning + suggestion to run `tm admin repair` |
-| `NamespaceBusyError` | Message + exit 1; retry when the other operation finishes |
+| `NamespaceBusyError` | Message + exit 1 (includes holder pid/host when known); retry when the other operation finishes; stale same-host lease auto-reclaimed |
+| `KeyboardInterrupt` during translate | Exit 130 after cooperative abort between segments; completed progress kept |
 
 ## Known gaps
 

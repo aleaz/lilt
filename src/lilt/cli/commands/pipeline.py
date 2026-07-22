@@ -1,5 +1,7 @@
 """CLI commands for sync, translate, build, and review workflows."""
 
+import signal
+
 import click
 import typer
 from rich.markup import escape
@@ -14,6 +16,7 @@ from lilt.cli.ui import (
     print_success,
     print_warning,
 )
+from lilt.core.translation.abort import clear_abort, request_abort
 from lilt.exceptions import BuildError, TranslationValidationError
 from lilt.models.segment import SegmentStatus
 from lilt.models.status_resolver import StatusResolver
@@ -143,9 +146,16 @@ def translate(
         print_info("No namespaces found in the Translation Memory.")
         return
 
+    clear_abort()
+
+    def _on_abort(_signum: int, _frame: object) -> None:
+        request_abort()
+
+    prev_int = signal.signal(signal.SIGINT, _on_abort)
+    prev_term = signal.signal(signal.SIGTERM, _on_abort)
+    failures = 0
     try:
         with TransientProgressLayout(console) as layout:
-            failures = 0
             for ns in target_namespaces:
                 generator = service.run_translation(
                     ns, force, segment_id, status_filter, stage, translation_mode=mode
@@ -193,8 +203,14 @@ def translate(
                             seg_info=f"[bright_black](ID: {seg_id[:8]})[/bright_black] - [{color}]{status_msg}[/{color}]",
                         )
     except KeyboardInterrupt:
-        print_warning("\nTranslation interrupted by user. Progress has been saved.")
+        print_warning(
+            "\nTranslation interrupted. Progress has been saved; re-run translate to resume."
+        )
         raise typer.Exit(code=130) from None
+    finally:
+        signal.signal(signal.SIGINT, prev_int)
+        signal.signal(signal.SIGTERM, prev_term)
+        clear_abort()
 
     remaining_blocked = 0
     for ns in target_namespaces:

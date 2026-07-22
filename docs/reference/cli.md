@@ -79,7 +79,7 @@ lilt pipeline translate [NAMESPACE] [OPTIONS]
 | `--stage STAGE` | Workflow only: `draft`, `critique`, or `refine`. Critique requires `drafted`; refine requires `critiqued`. Use `--stage draft [--force]` then resume stages — do not expect `--force --stage refine` alone to re-draft |
 | `--mode MODE` | Override `translation_mode`: `workflow` or `sequential` |
 
-Interrupted runs: **re-invoke** `translate` (no separate resume command). Finished segments stay in the TM. If conflicts/errors remain after an idle run, the CLI exits non-zero and points at `tm list --status conflict` / `build --allow-partial`.
+Interrupted runs: **re-invoke** `translate` (no separate resume command). Finished segments stay in the TM. `Ctrl+C` / SIGTERM aborts **between segments** (exit 130); the current segment’s LLM call may still finish. If conflicts/errors remain after an idle run, the CLI exits non-zero and points at `tm list --status conflict` / `build --allow-partial`.
 
 Examples:
 
@@ -158,6 +158,14 @@ lilt tm status [NAMESPACE] [--all]
 |--------|-------------|
 | `NAMESPACE` | Single-namespace dashboard |
 | `--all, -a` | Consolidated stats for all namespaces |
+
+The **Count** column for each lifecycle status (including `refined`) matches
+segment inventory — the same cardinality as `tm list NS --status <status>`.
+Optional Reflection Stats use separate reflection metrics and do not zero the
+status Count row.
+
+Requires an initialized workspace (`.lilt/lilt.yaml`). If initialized but no
+TM namespaces exist yet, the CLI prints guidance to run `pipeline sync`.
 
 #### `tm budget`
 

@@ -135,6 +135,11 @@ Do not catch or raise them interchangeably.
 
 CLI reports precise interrupt messaging (completed segments retained; in-flight segment reverted).
 
+Cooperative cancel: `pipeline translate` maps SIGINT/SIGTERM to an abort flag
+(`core/translation/abort.py`). Workflow and sequential strategies call
+`check_abort()` at the **start of each segment**; cancel boundary is between
+segments (exit 130). In-flight HTTP for the current segment may still complete.
+
 MQM tiers: L1 structural (validators), L2 terminology (lexical mask; validator deferred), L3 fluency (RAG + reflection).
 
 ### Policies
@@ -166,6 +171,7 @@ MQM tiers: L1 structural (validators), L2 terminology (lexical mask; validator d
 | Separate error vs conflict | Observability and recovery paths | Single failure status |
 | Internal `status_filter` parameter | Clarifies `--status` is a filter, not a target state | Keep misleading `target_status` name |
 | Jinja prompt files | Version-controlled, overridable templates | Prompts in YAML |
+| Cooperative abort between segments | Predictable cancel + lease release without killing mid-HTTP arbitrarily | Immediate process kill only; no abort flag |
 
 ## Implementation map
 
@@ -185,6 +191,7 @@ MQM tiers: L1 structural (validators), L2 terminology (lexical mask; validator d
 | `models/status_resolver.py` | Status CLI aliases |
 | `models/translation_mode.py` | `translation_mode` enum resolution |
 | `core/translation/segment_uow.py` | `process_segment` interrupt-safe UoW |
+| `core/translation/abort.py` | Cooperative abort flag for translate (SIGINT/SIGTERM → between segments) |
 | `llm/output_gate.py` | `validate_llm_output` (re-exports `EmptyLLMOutputError`) |
 | `tm/checkpoint.py` | `TranslationCheckpoint` append + stage-end compaction |
 | `validation/validators.py` | `SegmentTranslationValidator`, `PlaceholderValidator`, `SyntaxValidator`, `BuildValidator` |

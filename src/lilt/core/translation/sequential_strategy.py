@@ -4,6 +4,7 @@ import logging
 import time
 from collections.abc import Iterable
 
+from lilt.core.translation.abort import check_abort
 from lilt.core.translation.base_strategy import BaseReflectionStrategy
 from lilt.core.translation.progress_events import (
     progress_error,
@@ -78,6 +79,7 @@ class SequentialReflectionStrategy(BaseReflectionStrategy):
         segment_to_idx = {s.id: idx for idx, s in enumerate(active_segments)}
 
         for i, seg in enumerate(to_translate):
+            check_abort()
             start_time = time.time()
             translated_text = ""
             result_meta: dict | None = None

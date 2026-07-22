@@ -4,6 +4,7 @@ import logging
 import time
 from collections.abc import Iterable
 
+from lilt.core.translation.abort import check_abort
 from lilt.core.translation.base_strategy import BaseReflectionStrategy
 from lilt.core.translation.progress_events import (
     progress_error,
@@ -127,6 +128,7 @@ class WorkflowReflectionStrategy(BaseReflectionStrategy):
             return
 
         for i, seg in enumerate(to_process):
+            check_abort()
             start_time = time.time()
             refined_text: str | None = None
             yield {
