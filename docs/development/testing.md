@@ -28,14 +28,32 @@ uv run pytest tests/test_cli_pipeline.py -q
 | `test_tm_*.py`, `test_sync.py` | Integration | TM, sync, import/export |
 | `test_e2e_pipeline.py`, `test_cli_*.py` | End-to-end / CLI | Full pipeline, Typer commands |
 | `test_placeholder_persistence.py` | Integration | Masking roundtrip + workflow |
+| `tests/release/` (`@pytest.mark.release`) | Release locks | RG-01 `tm status` counts, fail-closed build, idle conflicts, placeholder hints |
 
-Config: `[tool.pytest.ini_options]` in [`pyproject.toml`](../../pyproject.toml) (`testpaths = ["tests"]`).
+Config: `[tool.pytest.ini_options]` in [`pyproject.toml`](../../pyproject.toml) (`testpaths = ["tests"]`). Release locks run in default pytest / `make ci` (not excluded).
+
+Filter release locks only:
+
+```bash
+uv run pytest -m release
+```
+
+## Release validation (pre-tag)
+
+```bash
+make release-validate
+```
+
+Runs `scripts/release/check-status-consistency.py`, `check-doc-links.sh`, and
+`check-quickstart-structure.sh`. Maintainer strategy (gitignored):
+`docs/internal/RELEASE_VALIDATION_STRATEGY.md`.
 
 ## CI parity
 
 [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) runs **`make ci`** (ruff format --check, ruff check, mypy, pytest) on pushes/PRs to `main`/`master`.
 
 Local mutating loop: `make check-all`. Local non-mutating gate: `make ci`.
+Before a public RC: `make release-validate` plus the manual UX gate checklist.
 
 ## Product boundary
 

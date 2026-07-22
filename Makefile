@@ -1,4 +1,4 @@
-.PHONY: format lint typecheck test check-all ci docs-sync-check config-doc-sync-check
+.PHONY: format lint typecheck test check-all ci docs-sync-check config-doc-sync-check release-validate
 
 format:
 	uv run ruff format .
@@ -28,4 +28,10 @@ docs-sync-check:
 # Warn-only: LiltConfig field names vs docs/reference/config.md (never fails; not part of `make ci`)
 config-doc-sync-check:
 	bash scripts/check-config-doc-sync.sh
+
+# Pre-release hard checks (QG-STAT / QG-DOC / QG-QS-STRUCT). Not part of every-PR `make ci`.
+release-validate:
+	uv run python scripts/release/check-status-consistency.py
+	bash scripts/release/check-doc-links.sh
+	bash scripts/release/check-quickstart-structure.sh
 

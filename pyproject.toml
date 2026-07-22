@@ -127,3 +127,6 @@ convention = "google"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "release: permanent locks from UX/release gate findings (run in make ci)",
+]
