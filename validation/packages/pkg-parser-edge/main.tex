@@ -1,0 +1,26 @@
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+% Project-local macro: legal for pdfLaTeX, unknown to LILT until configure.
+\newcommand{\edgemacro}[1]{\textbf{#1}}
+
+\title{Parser Edge Validation}
+\author{Validation Assets}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Configure and custom macros}
+\label{sec:edge}
+
+% Comment before the call stresses comment placement near structure.
+Prose before the edge macro. % trailing comment after prose
+See also Section~\ref{sec:edge} and inline math $x = 1$.
+
+The call \edgemacro{Edge argument} must surface as an unknown macro under
+\texttt{project configure --dry-run}, then register into
+\texttt{parser.custom\_macros} after configure (CL-021, CL-022).
+
+\end{document}

@@ -1,0 +1,21 @@
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+\title{Sync Partial Fail Validation}
+\author{Validation Assets}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Root}
+\label{sec:root}
+
+Root prose syncs first. Child \texttt{ok} updates successfully; colliding
+namespace paths force a mid-tree failure after partial progress (CL-122).
+
+\input{ok}
+\input{parts/x}
+
+\end{document}

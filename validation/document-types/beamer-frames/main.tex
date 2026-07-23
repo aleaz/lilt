@@ -1,0 +1,32 @@
+\documentclass{beamer}
+\usetheme{default}
+
+\title{LILT Beamer Validation}
+\author{Validation Assets}
+\date{}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{Structure}
+\label{fr:structure}
+Frame environments must remain paired after sync and localization.
+Common overlay specs such as \texttt{visible} must not corrupt placeholders.
+\end{frame}
+
+\begin{frame}{Overlay sample}
+  \begin{itemize}
+    \item<1-> First point appears on the first overlay.
+    \item<2-> Second point appears on the second overlay.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Closing}
+Titles and body prose are translation candidates under RV without breaking
+\texttt{frame} structure.
+\end{frame}
+
+\end{document}

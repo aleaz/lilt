@@ -1,0 +1,38 @@
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{listings}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  frame=single,
+  numbers=left,
+  numberstyle=\tiny
+}
+
+\title{Listings Package Validation}
+\author{Validation Assets}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Opaque listing body}
+\label{sec:listings}
+
+Listing~\ref{lst:demo} must keep its code body opaque under sync and
+translation. The figure caption is a translation candidate (CL-102).
+
+\begin{figure}[ht]
+\begin{lstlisting}
+def add(a, b):
+    return a + b
+\end{lstlisting}
+\caption{Sample algorithm caption for localization.}
+\label{lst:demo}
+\end{figure}
+
+Inline form \lstinline|add| is structural; surrounding prose remains
+translatable.
+
+\end{document}

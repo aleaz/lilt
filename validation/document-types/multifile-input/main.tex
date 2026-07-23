@@ -1,0 +1,21 @@
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+\title{Multifile Input Tree Validation}
+\author{Validation Assets}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Root}
+\label{sec:root}
+
+This root file includes chapter material via \texttt{\textbackslash input}.
+Namespaces must encode relative paths without collision.
+
+\input{chapters/intro}
+\input{chapters/methods}
+
+\end{document}

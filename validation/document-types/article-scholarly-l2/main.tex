@@ -1,0 +1,157 @@
+\documentclass[11pt]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{siunitx}
+\usepackage{csquotes}
+\usepackage[backend=biber,style=numeric]{biblatex}
+\usepackage{hyperref}
+\usepackage{cleveref}
+
+\addbibresource{references.bib}
+
+\newcommand{\toolname}{LILT}
+
+\title{Integrity Constraints for Structured Localization of Scholarly \LaTeX{}}
+\author{Validation Assets Working Note}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Scholarly articles mix running prose with equations, floats, and citations.
+This short note sketches an integrity-first localization workflow in which a
+local \toolname{} masks non-translatable tokens before machine translation and
+restores them afterward. The constructions below are deliberately minimal, yet
+representative of everyday scientific publishing practice.
+\end{abstract}
+
+\section{Introduction}
+\label{sec:intro}
+
+Authors who maintain bilingual technical manuscripts need more than fluent
+prose: labels, cite keys, and graphics paths must survive localization.
+Operators therefore treat structure as a first-class constraint and keep product
+names such as \toolname{} out of the editable translation span via protected
+terms. Editorial links may appear as
+\href{https://www.latex-project.org/}{project documentation}, while emphasis
+that must not lose its color argument can use
+\textcolor{blue}{stable highlight tokens}.
+
+\section{Methods}
+\label{sec:methods}
+
+Masked display mathematics remains byte-stable across languages. A toy energy
+relation is shown in~\cref{eq:energy}:
+
+\begin{equation}
+\label{eq:energy}
+E = mc^{2}
+\end{equation}
+
+A second display identity used for cross-checks is
+
+\begin{align}
+\label{eq:sum}
+a + b &= c \\
+c - a &= b
+\end{align}
+
+Physical quantities in the narrative use \texttt{siunitx}, for example a sample
+length of \SI{12.5}{\milli\metre} and a rate expressed with unit
+\si{\metre\per\second}. Inline fragments such as $x^{2}+y^{2}$ appear only as
+supporting context.
+
+\section{Results}
+\label{sec:results}
+
+\Cref{tab:signals} lists lightweight signals that catch expensive structural
+failures early. Column separators and row breaks must remain intact after
+localization.
+
+\begin{table}[ht]
+  \centering
+  \caption{Integrity signals monitored during a localization batch.}
+  \label{tab:signals}
+  \begin{tabular}{@{}ll@{}}
+    \toprule
+    Signal & Purpose \\
+    \midrule
+    Placeholder multiset & Detect dropped or invented tags \\
+    Status gates & Block unfinished machine drafts \\
+    Path stability & Keep graphics filenames unchanged \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+A compact multi-row summary uses \texttt{longtable}
+(\cref{tab:long}):
+
+\begin{longtable}{@{}lp{0.55\linewidth}@{}}
+\caption{Checklist items retained across a short results narrative.}
+\label{tab:long}\\
+\toprule
+Item & Note \\
+\midrule
+\endfirsthead
+\toprule
+Item & Note \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+Structure & Environments stay paired \\
+Citations & Keys must not be rewritten \\
+Units & \texttt{siunitx} arguments stay syntactic \\
+\end{longtable}
+
+\Cref{fig:schema} shows a schematic placeholder figure with two panels. The
+graphics path \texttt{figures/schema.png} must remain stable.
+
+\begin{figure}[ht]
+  \centering
+  \begin{subfigure}{0.45\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{figures/schema.png}
+    \caption{Parse and mask.}
+    \label{fig:schema-a}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}{0.45\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{figures/schema.png}
+    \caption{Restore and rebuild.}
+    \label{fig:schema-b}
+  \end{subfigure}
+  \caption{Schematic of a structure-preserving localization pass.}
+  \label{fig:schema}
+\end{figure}
+
+\section{Discussion}
+\label{sec:discussion}
+
+Prior notes argue that integrity should precede fluency
+\cite{integrity2024}. Incremental memory-backed workflows are summarized
+by~\cite[see][§2]{workflow2025}, while unit-aware typesetting practice is
+surveyed in~\cite{units2023}. As \enquote{structure first} operators often
+remark, the reader should never notice repaired markup---only improved prose.
+
+\section*{Appendix: Argument-level macros}
+\label{sec:appendix}
+
+For completeness, a second hyperlink
+\href{https://ctan.org/}{CTAN} and a
+\textcolor{red}{warning token} confirm that non-translatable macro arguments
+remain under deterministic control outside the main narrative.
+
+\printbibliography
+
+\end{document}

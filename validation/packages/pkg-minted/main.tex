@@ -1,0 +1,25 @@
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{minted}
+
+\title{Minted Package Validation}
+\author{Validation Assets}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Opaque minted body}
+\label{sec:minted}
+
+The minted environment body below must not appear as free linguistic prose in
+Translation Memory after sync (CL-101). Surrounding prose is a sync hygiene
+segment only.
+
+\begin{minted}{python}
+def add(a, b):
+    return a + b
+\end{minted}
+
+\end{document}

@@ -1,0 +1,28 @@
+\documentclass{article}
+\usepackage{fontspec}
+\usepackage{polyglossia}
+\setdefaultlanguage{english}
+\setotherlanguage{spanish}
+
+\title{Polyglossia Xe Validation}
+\author{Validation Assets}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{English body}
+\label{sec:en}
+
+This short article uses XeLaTeX with polyglossia and fontspec. Default
+language is English; Spanish is declared as an other language.
+
+\section{Spanish sample}
+\label{sec:es}
+
+\begin{spanish}
+Texto breve en español para comprobar que el preámbulo polyglossia
+sobrevive al sync sin romper el motor Xe.
+\end{spanish}
+
+\end{document}

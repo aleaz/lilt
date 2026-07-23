@@ -1,0 +1,54 @@
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amsmath}
+
+\title{LILT Validation Smoke (L1)}
+\author{Validation Assets}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This minimal article is the gold-standard Validation Asset for LILT continuous
+verification. It exercises sectioning, labels, cross-references, inline math,
+and environment pairing without scholarly package stacks.
+\end{abstract}
+
+\section{Structure and labels}
+\label{sec:structure}
+
+Sectioning and labels must survive sync and localization. See also
+Section~\ref{sec:math} for an inline formula and the list below for paired
+environments.
+
+\begin{itemize}
+  \item Prose segments are translation candidates.
+  \item Markup structure is not free text for the model.
+\end{itemize}
+
+\section{Inline mathematics}
+\label{sec:math}
+
+A safe pipeline masks inline mathematics such as $E = mc^{2}$ before machine
+translation and restores the same tokens afterward. Cross-reference integrity
+is checked via Equation~\eqref{eq:toy} below.
+
+% Display equation supports \eqref (CL-040) only — not display-math claim CL-061.
+\begin{equation}
+\label{eq:toy}
+a + b = c
+\end{equation}
+
+Equation~\eqref{eq:toy} exists so that \texttt{\textbackslash eqref} and
+\texttt{\textbackslash label} appear together with surrounding prose.
+
+\section{Closing}
+\label{sec:close}
+
+If sync preserves namespaces, placeholders restore correctly after translate,
+and fail-closed build behaves as documented, this smoke asset has done its job.
+
+\end{document}
