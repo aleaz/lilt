@@ -12,7 +12,8 @@ logger = logging.getLogger(__name__)
 class DependencyResolver:
     r"""Resolves the LaTeX project dependency graph by automatically finding the root file.
 
-    (containing \documentclass) and recursively tracking \usepackage, \input, and \include.
+    (containing \documentclass) and recursively tracking \usepackage, \input,
+    \include, and subfiles ``\\subfile`` / ``\\subfix``.
 
     Stateless between calls: each resolution creates its own `visited` set, so the same
     instance can be safely reused and called multiple times without cross-contamination.
@@ -62,7 +63,7 @@ class DependencyResolver:
         r"""Resolve all dependencies starting from a specific entry point file.
 
         Unlike `resolve()`, this method does not auto-detect the root: it starts
-        traversal from the given file and follows all \\input/\\include directives.
+        traversal from the given file and follows \\input/\\include/\\subfile/\\subfix.
 
         Args:
             entry_point: Absolute or relative path to the entry LaTeX file.
@@ -114,9 +115,9 @@ class DependencyResolver:
                 if os.path.exists(pkg_path):
                     self._traverse(pkg_path, visited)
 
-        # Handle \input{file} or \include{file} or \input file
+        # Handle \input/\include/\subfile/\subfix{file} or bare \input file
         input_pattern = re.compile(
-            r"\\(?:input|include)\s*\{([^}]+)\}|\\input\s+([^\s%]+)"
+            r"\\(?:input|include|subfile|subfix)\s*\{([^}]+)\}|\\input\s+([^\s%]+)"
         )
         file_dir = os.path.dirname(file_path)
         for match in input_pattern.finditer(content):

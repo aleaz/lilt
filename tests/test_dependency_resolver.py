@@ -63,3 +63,26 @@ def test_dependency_resolver_fallback_multiple_roots():
         assert len(files) == 2
         assert any(f.endswith("file1.tex") for f in files)
         assert any(f.endswith("file2.tex") for f in files)
+
+
+def test_dependency_resolver_follows_subfile():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with open(os.path.join(tmpdir, "main.tex"), "w") as f:
+            f.write(r"""\documentclass{article}
+\usepackage{subfiles}
+\begin{document}
+\subfile{child}
+\end{document}
+""")
+        with open(os.path.join(tmpdir, "child.tex"), "w") as f:
+            f.write(r"""\documentclass[main.tex]{subfiles}
+\begin{document}
+Child prose.
+\end{document}
+""")
+
+        resolver = DependencyResolver(tmpdir)
+        files = resolver.resolve_from(os.path.join(tmpdir, "main.tex"))
+
+        assert any(f.endswith("main.tex") for f in files)
+        assert any(f.endswith("child.tex") for f in files)

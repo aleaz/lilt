@@ -68,6 +68,8 @@ flowchart TB
 `LatexParser` uses `pylatexenc` with configurable `MacrosDef` from `parser.custom_macros`.
 Token-iterator fallback handles alias stacks. `ProjectAnalyzer` reports gaps and
 dependencies; `project configure --dry-run` surfaces structural issues.
+`DependencyResolver` follows `\input` / `\include` and subfiles `\subfile` /
+`\subfix` when walking the project graph from a sync entry point.
 
 ### Placeholder taxonomy (canonical)
 
@@ -127,7 +129,7 @@ time, the same alphabetic-content check short-circuits full D→C→R. Telemetry
 | `parser/environment_stack.py` | Environment pairing and alias fallback |
 | `parser/placeholder_contract.py` | Canonical placeholder regex and validation |
 | `parser/placeholder_engine.py` | Mask/unmask, `compress_blocks` |
-| `parser/dependency_resolver.py` | Environment alias graph |
+| `parser/dependency_resolver.py` | Project file graph (`\input`/`\include`/`\subfile`/`\subfix`) |
 | `parser/analyzer.py` | `ProjectAnalyzer`, gap reports |
 | `parser/roundtrip.py` | `verify_lossless_roundtrip` — byte-for-byte reconstruction check after parse |
 | `parser/linguistic.py` | Linguistic content heuristics (`has_linguistic_content`) |
