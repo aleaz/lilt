@@ -84,8 +84,13 @@ class TMService:
         status: str | None = None,
         search: str | None = None,
     ) -> list[StoredSegment]:
-        """List and filter segments within a specific namespace."""
-        segments = self._get_namespace_segments(namespace)
+        """List and filter segments within a specific namespace.
+
+        Empty but present namespace files yield an empty list (not an error).
+        """
+        self.ctx.preconditions.require_initialized()
+        self.ctx.preconditions.require_namespace_file_exists(namespace)
+        segments = self.repo.load_namespace(namespace)
         results = []
         for seg in segments.values():
             if status and not StatusResolver.matches(seg.status, status):
@@ -126,9 +131,13 @@ class TMService:
             return seg, old_status
 
     def get_stats(self, namespace: str) -> dict[str, int]:
-        """Generate translation statistics and progress metrics for a namespace."""
+        """Generate translation statistics and progress metrics for a namespace.
+
+        Empty namespace files (valid after sync of non-prose includes) report zeros.
+        """
         self.ctx.preconditions.require_initialized()
-        segments = self._get_namespace_segments(namespace)
+        self.ctx.preconditions.require_namespace_file_exists(namespace)
+        segments = self.repo.load_namespace(namespace)
         stats = {status.value: 0 for status in SegmentStatus}
         stats["total"] = len(segments)
 

@@ -18,6 +18,9 @@ Availability.
 
 ### Fixed
 
+- `tm list` / `tm status` no longer raise `NamespaceNotFoundError` on empty
+  namespace files created by sync of non-prose includes (e.g. TikZ `fig/*.tex`).
+
 ## [1.0.0rc1] - 2026-07-25
 
 First public **Release Candidate** of the LILT (LaTeX Intelligent Localization

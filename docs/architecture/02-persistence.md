@@ -194,8 +194,12 @@ legality to match what `pipeline translate` will pick.
 | Stale session lease (dead same-host pid) | Auto-reclaim on next acquire | Re-run the command; no manual lock-file delete |
 | Lock contention (file lock) | `TMConcurrencyError` after retries | Re-run command |
 | Illegal status transition | `InvalidTransitionError` | Use allowed transition or `--force` |
+| Sync of include with no prose (empty `.jsonl`) | File exists; 0 segments | `tm list` / `tm status` report zeros; not `NamespaceNotFoundError` |
 
-## Concurrency invariant
+Empty namespace files are normal after syncing figure-only or non-translatable
+includes. Aggregate TM stats and list treat them as zero-segment namespaces.
+Operations that need content (e.g. translate a named namespace with no segments)
+still use the stricter empty-as-missing precondition where appropriate.
 
 Only **one mutating operation per namespace** may run at a time (sync, translate,
 import, reset, edit, `set-status`). The repository enforces this via a
