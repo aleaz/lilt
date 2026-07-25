@@ -3,6 +3,7 @@
 import os
 
 from lilt.exceptions import (
+    NamespaceEmptyError,
     NamespaceNotFoundError,
     ProjectNotInitializedError,
 )
@@ -43,8 +44,8 @@ class WorkspacePreconditions:
             raise NamespaceNotFoundError(namespace)
 
     def require_namespace(self, namespace: str) -> None:
-        """Raise if the namespace JSONL file does not exist or is empty."""
+        """Raise unless the namespace JSONL exists and has at least one segment row."""
         self.require_namespace_file_exists(namespace)
         segments = self.repo.load_namespace(namespace)
         if not segments:
-            raise NamespaceNotFoundError(namespace)
+            raise NamespaceEmptyError(namespace)

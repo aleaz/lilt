@@ -35,11 +35,23 @@ Template per error: **When** · **Diagnose** · **Resolve** · **Prevent** · **
 
 | | |
 |--|--|
-| **When** | Typo or namespace JSONL missing (never synced). Empty post-sync files (e.g. TikZ-only includes) are **not** this error for `tm list` / `tm status` / `pipeline translate` |
+| **When** | Typo or namespace JSONL missing (never synced). Distinct from an **empty** post-sync file (see `NamespaceEmptyError`) |
 | **Diagnose** | `lilt tm list` |
 | **Resolve** | Sync root `.tex` or use the listed namespace name (`chapters/intro.tex` → `chapters__intro`) |
 | **Prevent** | Copy names from `tm list` |
-| **Related** | [Workflows](../guides/workflows.md), [02-persistence](../architecture/02-persistence.md) |
+| **Related** | [Workflows](../guides/workflows.md), [02-persistence](../architecture/02-persistence.md), `NamespaceEmptyError` |
+
+## NamespaceEmptyError
+
+**Message pattern:** `Namespace '…' exists in TM but has no segments …`
+
+| | |
+|--|--|
+| **When** | JSONL exists (e.g. after sync of a TikZ-only / non-prose include) but has zero segment rows; raised by ops that require content (`build`, `review`, `tm budget`, export/import, …) |
+| **Diagnose** | `lilt tm list` / `tm status` — namespace present with total 0 |
+| **Resolve** | Expected for figure-only includes: skip that namespace or build a prose namespace. Not a typo — do not re-sync expecting segments from pure TikZ |
+| **Prevent** | Prefer namespaces that list non-zero segments for build/review/budget |
+| **Related** | [02-persistence](../architecture/02-persistence.md), `NamespaceNotFoundError` |
 
 ## SegmentNotFoundError
 

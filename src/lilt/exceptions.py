@@ -32,6 +32,17 @@ class NamespaceNotFoundError(LiltDomainError):
         self.namespace = namespace
 
 
+class NamespaceEmptyError(LiltDomainError):
+    """Raised when a namespace JSONL exists but contains no segment rows."""
+
+    def __init__(self, namespace: str):
+        super().__init__(
+            f"Namespace '{namespace}' exists in TM but has no segments "
+            "(empty after sync of a non-prose include)."
+        )
+        self.namespace = namespace
+
+
 class SegmentNotFoundError(LiltDomainError):
     """Raised when a segment ID is not found in a namespace."""
 

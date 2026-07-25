@@ -64,9 +64,9 @@ When code and prose disagree, **code wins**; update documentation to match.
 
 | | |
 |---|---|
-| **Definition** | TM partition keyed by encoded relative path of source `.tex` (root: basename; nested: `dir__file`) |
+| **Definition** | TM partition keyed by encoded relative path of source `.tex` (root: basename; nested: `dir__file`). May be an empty JSONL after sync of non-prose includes |
 | **Responsibility** | Isolates segments per document file |
-| **Relationships** | One namespace → one JSONL file (e.g. `chapter1` → `chapter1.jsonl`) |
+| **Relationships** | One namespace → one JSONL file (e.g. `chapter1` → `chapter1.jsonl`). Missing file → `NamespaceNotFoundError`; empty file on content ops → `NamespaceEmptyError` |
 | **Code example** | `tm/repository.py`, `PipelineService.sync_file()` |
 | **Alternative names** | file stem, document key |
 | **Recommendation** | **Keep** |

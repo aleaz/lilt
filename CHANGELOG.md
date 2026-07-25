@@ -16,6 +16,9 @@ Availability.
 
 ### Changed
 
+- `require_namespace` raises `NamespaceEmptyError` when the JSONL exists but
+  has no segments (distinct from `NamespaceNotFoundError` for a missing file).
+
 ### Fixed
 
 - `tm list` / `tm status` no longer raise `NamespaceNotFoundError` on empty

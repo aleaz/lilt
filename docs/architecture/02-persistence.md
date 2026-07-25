@@ -197,11 +197,18 @@ legality to match what `pipeline translate` will pick.
 | Sync of include with no prose (empty `.jsonl`) | File exists; 0 segments | `tm list` / `tm status` report zeros; `pipeline translate` / `--all` idle-skip; not `NamespaceNotFoundError` |
 
 Empty namespace files are normal after syncing figure-only or non-translatable
-includes. Aggregate TM stats and list treat them as zero-segment namespaces.
-`pipeline translate` (including `--all`) idle-skips empty files with
-`Done (no translatable segments)`. Operations that require at least one segment
-row (e.g. some admin paths) may still use the stricter empty-as-missing
-precondition where appropriate.
+includes. Guard policy:
+
+| Operation | Guard | Empty JSONL |
+|-----------|-------|-------------|
+| `tm list` / `tm status` / inventory | `require_namespace_file_exists` | zeros / `[]` |
+| `pipeline translate` (+ `--all`) | file-exists + early idle | `Done (no translatable segments)` |
+| `build` / `review` / TM ops that need rows (`budget`, export, …) | `require_namespace` | `NamespaceEmptyError` |
+| Typo / JSONL missing | file-exists fails | `NamespaceNotFoundError` |
+
+`NamespaceNotFoundError` means the file is absent. `NamespaceEmptyError` means the
+file exists but has no segment rows (valid post-sync member, unsuitable for
+ops that require content).
 
 ## Concurrency invariant
 
