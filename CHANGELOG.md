@@ -20,6 +20,8 @@ Availability.
 
 - `tm list` / `tm status` no longer raise `NamespaceNotFoundError` on empty
   namespace files created by sync of non-prose includes (e.g. TikZ `fig/*.tex`).
+- `pipeline translate` / `translate --all` idle-skips empty namespace files
+  instead of raising `NamespaceNotFoundError`.
 
 ## [1.0.0rc1] - 2026-07-25
 

@@ -137,7 +137,18 @@ class TranslationOrchestrator:
     ) -> Iterable[tuple[int, int, str, str, bool]]:
         """Translate eligible segments and yield progress tuples."""
         config = self.ctx.preconditions.load_config()
-        self.ctx.preconditions.require_namespace(namespace)
+        # Empty JSONL (e.g. TikZ-only includes) is a valid post-sync namespace;
+        # do not treat it as NamespaceNotFoundError — skip with an idle Done.
+        self.ctx.preconditions.require_namespace_file_exists(namespace)
+        if not self.ctx.repo.load_namespace(namespace):
+            yield (
+                0,
+                0,
+                "done",
+                self._idle_translation_message(namespace, 0, force, stage),
+                False,
+            )
+            return
         plane = config.llm.build_cost_plane(durability=config.tm.durability)
         self.ctx.repo.durability = plane.durability
         llm_config = config.to_llm_factory_dict(workspace_dir=self.ctx.workspace_dir)
@@ -206,7 +217,7 @@ class TranslationOrchestrator:
         segments = self.ctx.repo.load_namespace(namespace)
         active = [s for s in segments.values() if s.status != SegmentStatus.DEPRECATED]
         if not active:
-            return "Done (no translatable segments; run sync on a .tex file first, or this fixture is parser-roundtrip only)"
+            return "Done (no translatable segments)"
         stage_value = stage.value if stage is not None else None
         if stage_value in ("critique", "refine"):
             needed = "drafted" if stage_value == "critique" else "critiqued"

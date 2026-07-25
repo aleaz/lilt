@@ -35,11 +35,11 @@ Template per error: **When** · **Diagnose** · **Resolve** · **Prevent** · **
 
 | | |
 |--|--|
-| **When** | Typo or namespace never synced |
+| **When** | Typo or namespace JSONL missing (never synced). Empty post-sync files (e.g. TikZ-only includes) are **not** this error for `tm list` / `tm status` / `pipeline translate` |
 | **Diagnose** | `lilt tm list` |
 | **Resolve** | Sync root `.tex` or use the listed namespace name (`chapters/intro.tex` → `chapters__intro`) |
 | **Prevent** | Copy names from `tm list` |
-| **Related** | [Workflows](../guides/workflows.md) |
+| **Related** | [Workflows](../guides/workflows.md), [02-persistence](../architecture/02-persistence.md) |
 
 ## SegmentNotFoundError
 
