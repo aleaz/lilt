@@ -201,6 +201,8 @@ includes. Aggregate TM stats and list treat them as zero-segment namespaces.
 Operations that need content (e.g. translate a named namespace with no segments)
 still use the stricter empty-as-missing precondition where appropriate.
 
+## Concurrency invariant
+
 Only **one mutating operation per namespace** may run at a time (sync, translate,
 import, reset, edit, `set-status`). The repository enforces this via a
 non-blocking **session lease** (`*.session.lock` plus companion `*.session.lease`
