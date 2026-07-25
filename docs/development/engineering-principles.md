@@ -26,7 +26,7 @@ Companion: [engineering-philosophy.md](engineering-philosophy.md). Index: [Devel
 | **Human priority** | Protected statuses never auto-overwritten | L1-02; architecture rule |
 | **Integrity over linguistics** | Structure before “better prose” | Architecture rule; validators |
 | **Architecture as decision log** | Decisions in L1; no ADR tree | L1 sections; appendix-deferred |
-| **Honest maturity** | Beta / Unreleased until intentional tag | CHANGELOG; conventions |
+| **Honest maturity** | RC / Unreleased work until intentional tags; no GA theater | CHANGELOG; conventions |
 
 ## Principles we do **not** claim
 

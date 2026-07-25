@@ -57,7 +57,7 @@ Agents / AI-assisted work: [ai-contribution-guidelines.md](ai-contribution-guide
 | **Documentation** | Correct Diátaxis home; glossary SSOT; never mark [appendix-deferred](../architecture/appendix-deferred.md) items as shipped |
 | **Examples** | Extend or keep honest [examples/quickstart](../../examples/quickstart/); do not invent parallel example trees or claim CI runs them |
 | **Tests** | Follow [testing.md](testing.md) patterns; no large empirical campaigns or corpora in this repo |
-| **Refactor** | Preserve Behavior; call out any CLI/config break (public beta may change, but be explicit) |
+| **Refactor** | Preserve Behavior; call out any CLI/config break (RC may change until stable 1.0.0, but be explicit) |
 | **Performance** | Prefer measurable changes (telemetry / existing runbooks); do not invent SLOs in docs |
 | **Developer tooling** | Keep Makefile / `scripts/` / CI aligned with `make ci` |
 | **Security** | Follow [SECURITY.md](../../SECURITY.md); never commit secrets |

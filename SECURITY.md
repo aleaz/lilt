@@ -2,13 +2,14 @@
 
 ## Supported versions
 
-There is no tagged release yet. Security fixes target the tip of `main`
-(pre-release **0.1.x** package line in development).
+Security fixes target the current Release Candidate line and the tip of `main`
+when it tracks that line.
 
 | Line | Supported |
 |------|-----------|
-| `main` / pre-release 0.1.x | Yes |
-| Tagged releases | None yet |
+| `v1.0.0-rc.1` / package `1.0.0rc1` | Yes |
+| `main` (while tracking the RC line) | Yes |
+| Older untagged 0.1.x tips | No (superseded by RC) |
 
 ## Reporting a vulnerability
 

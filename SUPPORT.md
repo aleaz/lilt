@@ -19,4 +19,4 @@
 
 ## Maintainer response
 
-This is a solo-maintained public beta. Response times vary; security reports are prioritized per [SECURITY.md](SECURITY.md).
+This is a solo-maintained project on its first public **Release Candidate** (`1.0.0rc1`). Response times vary; security reports are prioritized per [SECURITY.md](SECURITY.md).

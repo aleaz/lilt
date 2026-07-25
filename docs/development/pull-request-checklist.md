@@ -47,7 +47,7 @@ Author self-check before opening or updating a PR. GitHub template: [`.github/PU
 
 ## Compatibility & complexity
 
-- [ ] Breaking CLI/config changes called out explicitly (public beta)
+- [ ] Breaking CLI/config changes called out explicitly (RC until stable 1.0.0)
 - [ ] No unnecessary complexity or speculative abstractions
 - [ ] Performance claims (if any) are measurable — no invented SLOs
 

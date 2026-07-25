@@ -30,7 +30,7 @@ LILT treats LaTeX translation as a software engineering problem. Instead of send
 
 ## Maturity
 
-LILT is a **public beta** on the **0.1.x** package line (no tagged Git release yet). Core pipeline (sync, translate, build, review, TM management, telemetry) is implemented and tested. Treat 0.x as SemVer-unstable: CLI and config may still change. Phase 2 features (plugins, glossary validators, multi-language layout) are documented as deferred in [appendix-deferred](architecture/appendix-deferred.md).
+LILT’s first public release is **Release Candidate** `1.0.0rc1` (git tag `v1.0.0-rc.1`). Core pipeline (sync, translate, build, review, TM management, telemetry) is implemented and tested. Treat the RC line as SemVer-unstable until a later stable `1.0.0`: CLI and config may still change. This is **not** General Availability. Phase 2 features (plugins, glossary validators, multi-language layout) are documented as deferred in [appendix-deferred](architecture/appendix-deferred.md).
 
 ## Audience
 

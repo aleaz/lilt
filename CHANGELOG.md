@@ -5,14 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-There is no tagged Git release yet. Everything below is on `main` under
-**[Unreleased]** (package line: 0.1.0; distribution name: `latex-lilt`).
+Distribution package: **`latex-lilt`**. CLI / import: **`lilt`**.
+Install from Git (not PyPI as `lilt`). First public tag: **`v1.0.0-rc.1`**
+(PEP 440: **`1.0.0rc1`**). This is a **Release Candidate**, not General
+Availability.
 
 ## [Unreleased]
 
 ### Added
 
-- Public beta of the LILT localization engine (sync, translate, build, review, TM, telemetry).
+### Changed
+
+### Fixed
+
+## [1.0.0rc1] - 2026-07-25
+
+First public **Release Candidate** of the LILT (LaTeX Intelligent Localization
+Tool) engine. Git tag: `v1.0.0-rc.1`. Not GA; not published to PyPI in this cut.
+
+### Added
+
+- Public localization engine (sync, translate, build, review, TM, telemetry).
 - Architecture L1 guides under `docs/architecture/`.
 - CI via `make ci` (ruff, mypy, pytest).
 - Provider-agnostic `plan_token_budget` / `pack_neighbor_context`, batch budget preflight, and config for `output_token_mode` / `tokenizer_fudge` / domain context caps.
@@ -24,6 +37,7 @@ There is no tagged Git release yet. Everything below is on `main` under
 - Telemetry persists `reasoning_tokens` when the provider reports them.
 - `lilt --version` from installed package metadata.
 - Community health: `SUPPORT.md`, issue template chooser links, OSS readiness docs (disclaimer vs Lilt Inc.).
+- Curated Validation Repository (`validation/`) with claim-driven assets (64/64 implemented).
 
 ### Changed
 
@@ -50,7 +64,7 @@ There is no tagged Git release yet. Everything below is on `main` under
 - Namespace derivation lives in `tm.namespace`; TM status cost estimates via `TMService`.
 - Translate CLI uses public workspace APIs (no `_get_config` / `service.repo` privates).
 - Docs label Terminology/Structure validators as Phase 3 (aligned with product context).
-- Maturity wording: honest 0.x public beta (not “approaching 1.0”).
+- Maturity: first public Release Candidate `1.0.0rc1` (not GA).
 
 ### Fixed
 
@@ -65,3 +79,4 @@ There is no tagged Git release yet. Everything below is on `main` under
 - Idle `--stage critique|refine` with no eligible segments hints `--stage draft [--force]` first; CLI/docs clarify that workflow `--force` expands draft only.
 - Empty or null `lilt.yaml` raises `ConfigurationError` instead of applying silent full defaults.
 - Non-empty critique output that is not valid JSON with `requires_refine` marks the segment `conflict` and does not run refine.
+- Parser follows `subfiles` includes in DependencyResolver.

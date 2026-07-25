@@ -3,7 +3,7 @@
 [![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/aleaz/lilt/actions/workflows/ci.yml/badge.svg)](https://github.com/aleaz/lilt/actions/workflows/ci.yml)
-[![Status](https://img.shields.io/badge/status-public%20beta-orange.svg)](docs/concepts.md#maturity)
+[![Status](https://img.shields.io/badge/status-release%20candidate-orange.svg)](docs/concepts.md#maturity)
 
 **Continuous LaTeX localization engine (CLI)** — local-first, structure-preserving, TM-backed, LLM-assisted.
 
@@ -97,7 +97,7 @@ Full walkthrough: [Getting started](docs/getting-started.md) · [First translati
 | **LLM** | OpenAI-compatible HTTP (`provider: openai`); per-stage models/endpoints |
 | **Workflows** | Sync → translate → build; workflow or sequential modes; TM + review |
 | **Integrations** | CLI + shell automation you own; no product SaaS orchestrator |
-| **Limits** | No OCR/diagrams; no PDF CLI; no corpus/eval in this repo; Windows not first-class tested; public beta (CLI/config may change) |
+| **Limits** | No OCR/diagrams; no PDF CLI; no corpus/eval in this repo; Windows not first-class tested; first public **Release Candidate** (`1.0.0rc1`) — not GA; CLI/config may still change |
 
 Deferred ideas: [appendix-deferred](docs/architecture/appendix-deferred.md).
 
@@ -124,7 +124,7 @@ Details: [Development overview](docs/development/overview.md). Process: [CONTRIB
 
 ## Project status
 
-**Public beta** ([CHANGELOG](CHANGELOG.md) still **Unreleased** — no git tag yet). Core pipeline (sync, translate, build, review, TM, telemetry) is implemented and tested. Treat pre-release as SemVer-unstable: CLI and config may still change. See [maturity](docs/concepts.md#maturity).
+**First public Release Candidate** `1.0.0rc1` (git tag `v1.0.0-rc.1` — see [CHANGELOG](CHANGELOG.md)). Core pipeline (sync, translate, build, review, TM, telemetry) is implemented and tested. **Not** General Availability. Treat the RC line as SemVer-unstable until a later stable `1.0.0`: CLI and config may still change. See [maturity](docs/concepts.md#maturity).
 
 ## Community and contribution
 

@@ -55,8 +55,8 @@ Optional warn-only: `make docs-sync-check`.
 ## Release considerations
 
 - Contributors **do not** cut release tags.
-- [CHANGELOG.md](../../CHANGELOG.md) stays **Unreleased** until the maintainer tags deliberately.
-- Version lives in `pyproject.toml` (public beta). CLI/config **may** change until an intentional release — call breaking changes out in the PR.
+- New work lands under CHANGELOG `[Unreleased]` until the maintainer cuts the next intentional tag.
+- Version lives in `pyproject.toml` (currently `1.0.0rc1` RC). CLI/config **may** still change until a stable `1.0.0` — call breaking changes out in the PR.
 - Detail: [overview.md](overview.md#release-and-versioning-honest).
 
 ---

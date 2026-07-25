@@ -67,7 +67,7 @@ Do not import services from core, or core from CLI.
 - **Diátaxis:** tutorial / how-to / reference / explanation have separate homes ([docs hub](../README.md)).
 - **Derived CLI surface:** Typer → `docs/reference/cli.md` → agent mirrors — same PR.
 - **Glossary owns terms.** Critique ≠ Review; refined ≠ approved.
-- **Honest maturity:** beta / Unreleased until an intentional tag — no release theater.
+- **Honest maturity:** Release Candidate / intentional tags — no GA theater.
 
 ## CLI philosophy
 
@@ -106,7 +106,7 @@ Do not import services from core, or core from CLI.
 ## Backward compatibility & release philosophy
 
 - Public beta: CLI/config **may** change until an intentional release.
-- CHANGELOG stays Unreleased until the maintainer cuts a tag deliberately.
+- CHANGELOG keeps `[Unreleased]` for post-cut work; maintainers cut tags deliberately.
 - Do not mark deferred appendix items as shipped.
 
 ## Related
