@@ -254,7 +254,7 @@ class TranslationOrchestrator:
             if blocked:
                 return (
                     f"Done (idle: {len(blocked)} conflict/error segment(s) remain; "
-                    "inspect with `lilt tm list NS --status conflict` "
+                    f"inspect with `lilt tm list {namespace} --status conflict` "
                     "or build with `--allow-partial` for a first look)"
                 )
             return "Done (already translated)"

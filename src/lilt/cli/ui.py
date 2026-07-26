@@ -45,7 +45,9 @@ class TransientProgressLayout:
             self._get_renderable(),
             console=self.console,
             refresh_per_second=4,
-            transient=False,
+            # Clear the Live region on exit so durable console.print lines are
+            # the permanent record (avoids duplicating one Progress row per NS).
+            transient=True,
         )
 
     def _get_renderable(self) -> RenderableType:
@@ -114,7 +116,7 @@ def print_success(msg: str) -> None:
 
 def print_warning(msg: str) -> None:
     """Print a standardized warning message."""
-    console.print(f"[bold yellow]⚠[/bold yellow] [yellow]{msg}[/yellow]")
+    console.print(f"[bold yellow]![/bold yellow] [yellow]{msg}[/yellow]")
 
 
 def print_error(msg: str) -> None:

@@ -18,6 +18,12 @@ Availability.
 
 - `require_namespace` raises `NamespaceEmptyError` when the JSONL exists but
   has no segments (distinct from `NamespaceNotFoundError` for a missing file).
+- `pipeline translate --all`: selective durable output in the CLI glyph language
+  (`✓` / `!` / `i`); boring idle namespaces collapse into one Skipped summary;
+  conflict idle and the final warning name the affected namespace(s). Live
+  progress remains transient for in-flight work.
+- `print_warning` uses bold yellow `!` (monospace-friendly) instead of thin `⚠`,
+  matching stroke weight with `✓` / `i` / `✗`.
 
 ### Fixed
 

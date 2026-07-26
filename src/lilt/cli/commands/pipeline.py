@@ -31,6 +31,37 @@ def _pipeline_service(ctx: typer.Context) -> PipelineService:
     return PipelineService(workspace_dir, workspace_ctx=workspace_ctx)
 
 
+def _emit_translate_namespace_done(
+    ns: str,
+    status_msg: str,
+    *,
+    had_progress: bool,
+    progress_count: int,
+) -> tuple[int, int]:
+    """Print selective durable output; return (skipped_already, skipped_empty) deltas."""
+    lower = status_msg.lower()
+    if had_progress:
+        if status_msg == "Done":
+            print_success(f"{ns} — Done ({progress_count} segments)")
+        else:
+            print_success(f"{ns} — {status_msg}")
+        return 0, 0
+    if "conflict/error" in lower:
+        count = "?"
+        for token in status_msg.replace("(", " ").split():
+            if token.isdigit():
+                count = token
+                break
+        print_warning(f"{ns} — {count} conflict/error; see hint below")
+        return 0, 0
+    if "already translated" in lower:
+        return 1, 0
+    if "no translatable segments" in lower:
+        return 0, 1
+    print_info(f"{ns} — {status_msg}")
+    return 0, 0
+
+
 app = typer.Typer(
     help="Manage the core LILT pipeline (sync, translate, build, review).",
     rich_markup_mode="rich",
@@ -154,30 +185,45 @@ def translate(
     prev_int = signal.signal(signal.SIGINT, _on_abort)
     prev_term = signal.signal(signal.SIGTERM, _on_abort)
     failures = 0
+    skipped_already = 0
+    skipped_empty = 0
     try:
         with TransientProgressLayout(console) as layout:
+            # One Live task for the whole run; selective durable lines use ✓/!/i.
+            task = layout.progress.add_task("Translating", total=None, seg_info="")
             for ns in target_namespaces:
                 generator = service.run_translation(
                     ns, force, segment_id, status_filter, stage, translation_mode=mode
                 )
-                task = layout.progress.add_task(
-                    f"Translating {ns}...", total=None, seg_info=""
-                )
                 first = True
+                had_progress = False
+                progress_count = 0
+                layout.progress.update(
+                    task,
+                    completed=0,
+                    total=None,
+                    description="Translating",
+                    seg_info=f"[cyan]\\[{ns}][/cyan]",
+                )
                 for _current, total, seg_id, status_msg, advance_bar in generator:
-                    if advance_bar and "FAIL" in status_msg:
-                        failures += 1
-                        layout.add_error(
-                            f"[red]✖ Failed segment {seg_id[:8]}: {status_msg}[/red]"
-                        )
+                    if advance_bar:
+                        had_progress = True
+                        progress_count += 1
+                        if "FAIL" in status_msg:
+                            failures += 1
+                            layout.add_error(
+                                f"[red]✖ Failed segment {seg_id[:8]} "
+                                f"[{ns}]: {status_msg}[/red]"
+                            )
 
                     if first:
                         layout.progress.update(task, total=total)
                         first = False
 
-                    desc = f"Translating {ns}..."
+                    desc = "Translating"
                     if failures > 0:
                         desc += f" [red]({failures} failed)[/red]"
+                    ns_tag = f"[cyan]\\[{ns}][/cyan] "
 
                     if seg_id == "done" or seg_id == "start":
                         if seg_id == "start":
@@ -186,21 +232,32 @@ def translate(
                                 completed=0,
                                 total=total,
                                 description=desc,
-                                seg_info=f"[yellow]{status_msg}[/yellow]",
+                                seg_info=f"{ns_tag}[yellow]{status_msg}[/yellow]",
                             )
                         else:
                             layout.progress.update(
                                 task,
                                 description=desc,
-                                seg_info=f"[yellow]{status_msg}[/yellow]",
+                                seg_info=f"{ns_tag}[yellow]{status_msg}[/yellow]",
                             )
+                            delta_already, delta_empty = _emit_translate_namespace_done(
+                                ns,
+                                status_msg,
+                                had_progress=had_progress,
+                                progress_count=progress_count,
+                            )
+                            skipped_already += delta_already
+                            skipped_empty += delta_empty
                     else:
                         color = "red" if "FAIL" in status_msg else "yellow"
                         layout.progress.update(
                             task,
                             advance=1 if advance_bar else 0,
                             description=desc,
-                            seg_info=f"[bright_black](ID: {seg_id[:8]})[/bright_black] - [{color}]{status_msg}[/{color}]",
+                            seg_info=(
+                                f"{ns_tag}[bright_black](ID: {seg_id[:8]})"
+                                f"[/bright_black] - [{color}]{status_msg}[/{color}]"
+                            ),
                         )
     except KeyboardInterrupt:
         print_warning(
@@ -212,30 +269,46 @@ def translate(
         signal.signal(signal.SIGTERM, prev_term)
         clear_abort()
 
+    if skipped_already or skipped_empty:
+        parts: list[str] = []
+        if skipped_already:
+            parts.append(f"{skipped_already} already translated")
+        if skipped_empty:
+            parts.append(f"{skipped_empty} empty (no segments)")
+        print_info(f"Skipped {', '.join(parts)}.")
+
     remaining_blocked = 0
+    blocked_namespaces: list[str] = []
     for ns in target_namespaces:
         segments = service.ctx.repo.load_namespace(ns)
-        remaining_blocked += sum(
+        n_blocked = sum(
             1
             for s in segments.values()
             if s.status in (SegmentStatus.CONFLICT, SegmentStatus.ERROR)
         )
+        if n_blocked:
+            remaining_blocked += n_blocked
+            blocked_namespaces.append(ns)
 
     if failures > 0:
         print_warning(
             f"Translation completed, but {failures} segment(s) encountered errors or conflicts."
         )
+        hint_ns = blocked_namespaces[0] if blocked_namespaces else "NS"
         print_info(
-            "Next: `lilt tm status`; `lilt tm list NS --status conflict`; "
+            f"Next: `lilt tm status`; `lilt tm list {hint_ns} --status conflict`; "
             "or `lilt pipeline build ... --allow-partial` for a first look."
         )
         raise typer.Exit(code=1) from None
     if remaining_blocked > 0:
+        ns_list = ", ".join(blocked_namespaces)
         print_warning(
-            f"No new work ran, but {remaining_blocked} conflict/error segment(s) remain."
+            f"No new work ran, but {remaining_blocked} conflict/error segment(s) "
+            f"remain in: {ns_list}."
         )
+        hint_ns = blocked_namespaces[0]
         print_info(
-            "Next: `lilt tm list NS --status conflict`; "
+            f"Next: `lilt tm list {hint_ns} --status conflict`; "
             "re-translate with `--force`, or build with `--allow-partial`."
         )
         raise typer.Exit(code=1) from None
