@@ -6,13 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Distribution package: **`latex-lilt`**. CLI / import: **`lilt`**.
-Install from Git (not PyPI as `lilt`). First public tag: **`v1.0.0-rc.1`**
-(PEP 440: **`1.0.0rc1`**). This is a **Release Candidate**, not General
-Availability.
+Install from Git (not PyPI as `lilt`). Current Release Candidate: **`v1.0.0-rc.2`**
+(PEP 440: **`1.0.0rc2`**). First public tag was **`v1.0.0-rc.1`**. This is a
+**Release Candidate**, not General Availability.
 
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+## [1.0.0rc2] - 2026-07-26
+
+Second **Release Candidate**. Git tag: `v1.0.0-rc.2`. Not GA; not published to
+PyPI in this cut. Fixes empty-namespace false negatives after sync of non-prose
+includes and clarifies translate progress output.
 
 ### Changed
 
@@ -22,6 +32,8 @@ Availability.
   (`✓` / `!` / `i`); boring idle namespaces collapse into one Skipped summary;
   conflict idle and the final warning name the affected namespace(s). Live
   progress remains transient for in-flight work.
+- Workflow Done lines name reflection stages (`draft` / `critique` / `refine`)
+  with per-stage counts instead of ambiguous cumulative totals.
 - `print_warning` uses bold yellow `!` (monospace-friendly) instead of thin `⚠`,
   matching stroke weight with `✓` / `i` / `✗`.
 

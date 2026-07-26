@@ -97,7 +97,7 @@ Full walkthrough: [Getting started](docs/getting-started.md) · [First translati
 | **LLM** | OpenAI-compatible HTTP (`provider: openai`); per-stage models/endpoints |
 | **Workflows** | Sync → translate → build; workflow or sequential modes; TM + review |
 | **Integrations** | CLI + shell automation you own; no product SaaS orchestrator |
-| **Limits** | No OCR/diagrams; no PDF CLI; no corpus/eval in this repo; Windows not first-class tested; first public **Release Candidate** (`1.0.0rc1`) — not GA; CLI/config may still change |
+| **Limits** | No OCR/diagrams; no PDF CLI; no corpus/eval in this repo; Windows not first-class tested; **Release Candidate** (`1.0.0rc2`) — not GA; CLI/config may still change |
 
 Deferred ideas: [appendix-deferred](docs/architecture/appendix-deferred.md).
 
@@ -124,7 +124,7 @@ Details: [Development overview](docs/development/overview.md). Process: [CONTRIB
 
 ## Project status
 
-**First public Release Candidate** `1.0.0rc1` (git tag `v1.0.0-rc.1` — see [CHANGELOG](CHANGELOG.md)). Core pipeline (sync, translate, build, review, TM, telemetry) is implemented and tested. **Not** General Availability. Treat the RC line as SemVer-unstable until a later stable `1.0.0`: CLI and config may still change. See [maturity](docs/concepts.md#maturity).
+**Release Candidate** `1.0.0rc2` (git tag `v1.0.0-rc.2` — see [CHANGELOG](CHANGELOG.md)). Core pipeline (sync, translate, build, review, TM, telemetry) is implemented and tested. **Not** General Availability. Treat the RC line as SemVer-unstable until a later stable `1.0.0`: CLI and config may still change. See [maturity](docs/concepts.md#maturity).
 
 ## Community and contribution
 

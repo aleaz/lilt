@@ -7,8 +7,9 @@ when it tracks that line.
 
 | Line | Supported |
 |------|-----------|
-| `v1.0.0-rc.1` / package `1.0.0rc1` | Yes |
+| `v1.0.0-rc.2` / package `1.0.0rc2` | Yes |
 | `main` (while tracking the RC line) | Yes |
+| `v1.0.0-rc.1` / package `1.0.0rc1` | No (superseded by rc.2) |
 | Older untagged 0.1.x tips | No (superseded by RC) |
 
 ## Reporting a vulnerability

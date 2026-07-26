@@ -72,7 +72,7 @@ Produces wheel and sdist in `dist/`. Distribution name is **`latex-lilt`**; impo
 
 ## Release and versioning (honest)
 
-- Version lives in [`pyproject.toml`](../../pyproject.toml) (currently `1.0.0rc1`, first public Release Candidate; tag `v1.0.0-rc.1`).
+- Version lives in [`pyproject.toml`](../../pyproject.toml) (currently `1.0.0rc2`, Release Candidate; tag `v1.0.0-rc.2`).
 - [CHANGELOG.md](../../CHANGELOG.md) keeps an `[Unreleased]` section for work after the last cut; intentional tags update CHANGELOG + [SECURITY.md](../../SECURITY.md) supported-versions.
 - Do not invent release theater (fake GA claims) in docs or CI.
 - When cutting a further release: update CHANGELOG, confirm SECURITY supported-versions, then tag deliberately.
