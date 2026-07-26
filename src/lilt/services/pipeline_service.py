@@ -199,7 +199,12 @@ class TranslationOrchestrator:
                     yield current, total, seg_id, status_msg, True
                 elif event_type == "done":
                     yielded_done = True
-                    yield current, total, "done", "Done", False
+                    stage_name = event.get("stage")
+                    if stage_name and stage_name != "sequential":
+                        status_msg = f"{stage_name} done"
+                    else:
+                        status_msg = "Done"
+                    yield current, total, "done", status_msg, False
 
         if not yielded_done:
             msg = self._idle_translation_message(namespace, total, force, stage)

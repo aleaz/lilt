@@ -33,6 +33,7 @@ class DoneEvent(TypedDict):
     """Batch completion event."""
 
     type: Literal["done"]
+    stage: NotRequired[str]
 
 
 def progress_pass(

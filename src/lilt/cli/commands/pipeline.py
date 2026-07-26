@@ -41,8 +41,8 @@ def _emit_translate_namespace_done(
     """Print selective durable output; return (skipped_already, skipped_empty) deltas."""
     lower = status_msg.lower()
     if had_progress:
-        if status_msg == "Done":
-            print_success(f"{ns} — Done ({progress_count} segments)")
+        if status_msg == "Done" or status_msg.endswith(" done"):
+            print_success(f"{ns} — {status_msg} ({progress_count} segments)")
         else:
             print_success(f"{ns} — {status_msg}")
         return 0, 0
@@ -227,6 +227,8 @@ def translate(
 
                     if seg_id == "done" or seg_id == "start":
                         if seg_id == "start":
+                            had_progress = False
+                            progress_count = 0
                             layout.progress.update(
                                 task,
                                 completed=0,

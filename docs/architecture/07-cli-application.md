@@ -78,6 +78,22 @@ PDF compilation is **not** a CLI command. `PdfCompileService` (via
   → `SegmentTranslationValidator` → `approved` status on success.
 - On validation failure: error message shown; TM unchanged.
 
+### Translate progress (live vs durable)
+
+`pipeline translate` uses a transient Rich Live bar for in-flight stage/segment status
+(`Starting Draft`, `Drafting…`, `PASS (DRAFT)`, …). Durable success lines are printed
+per completed strategy batch:
+
+- **Workflow** (default): one line per reflection stage that processed segments —
+  `✓ ns — draft done (N segments)`, then critique / refine — with **per-stage** `N`
+  (reset on each stage `start`). Stage name comes from the strategy `done` event via
+  `TranslationOrchestrator`.
+- **Sequential**: a single `✓ ns — Done (N segments)` after the depth-first batch
+  (`start`/`done` use `stage: sequential` so live status is `Starting Sequential`,
+  not `Initializing`).
+- Idle / skip collapse (`already translated`, empty, conflict hints) is unchanged;
+  see [docs/reference/cli.md](../reference/cli.md).
+
 ### Service layer
 
 | Service | Responsibility |

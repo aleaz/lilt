@@ -221,7 +221,7 @@ class WorkflowReflectionStrategy(BaseReflectionStrategy):
                 self._flush_telemetry(timing.get("checkpoint_ms"))
 
         self.checkpoint.finalize_stage(namespace, active_segments)
-        yield {"type": "done"}
+        yield {"type": "done", "stage": stage}
 
     def _execute_draft(
         self,

@@ -62,7 +62,7 @@ class SequentialReflectionStrategy(BaseReflectionStrategy):
             )
         ]
 
-        yield {"type": "start", "total": len(to_translate)}
+        yield {"type": "start", "total": len(to_translate), "stage": "sequential"}
 
         if not to_translate:
             return
@@ -193,4 +193,4 @@ class SequentialReflectionStrategy(BaseReflectionStrategy):
             if result_event is not None:
                 yield result_event
 
-        yield {"type": "done"}
+        yield {"type": "done", "stage": "sequential"}
